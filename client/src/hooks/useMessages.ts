@@ -124,7 +124,27 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     pendingTimeouts.current.set(tempId, timeout);
   }
 
-  return { messages, sendMessage, loadOlder, hasMore, loadingOlder, firstItemIndex } as const;
+  /** Re-send a message that timed out, reusing its existing bubble. */
+  function retryMessage(tempId: string) {
+    const failed = messages.find((m) => m.tempId === tempId);
+    if (!socket || !roomId || !failed) return;
+
+    dispatch({ type: 'retry', tempId });
+    socket.emit('message:send', {
+      roomId,
+      tempId,
+      body: failed.body ?? undefined,
+      attachmentKey: failed.attachmentKey ?? undefined,
+    });
+
+    const timeout = setTimeout(() => {
+      pendingTimeouts.current.delete(tempId);
+      dispatch({ type: 'fail', tempId });
+    }, SEND_TIMEOUT_MS);
+    pendingTimeouts.current.set(tempId, timeout);
+  }
+
+  return { messages, sendMessage, retryMessage, loadOlder, hasMore, loadingOlder, firstItemIndex } as const;
 }
 
 export type { DisplayMessage };

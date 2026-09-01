@@ -11,7 +11,8 @@ export type MessagesAction =
   | { type: 'send'; message: DisplayMessage }
   | { type: 'ack'; tempId: string; id: string; createdAt: string }
   | { type: 'receive'; message: Message }
-  | { type: 'fail'; tempId: string };
+  | { type: 'fail'; tempId: string }
+  | { type: 'retry'; tempId: string };
 
 export function messagesReducer(state: DisplayMessage[], action: MessagesAction): DisplayMessage[] {
   switch (action.type) {
@@ -37,6 +38,11 @@ export function messagesReducer(state: DisplayMessage[], action: MessagesAction)
     case 'fail':
       return state.map((m) =>
         m.tempId === action.tempId && m.status === 'pending' ? { ...m, status: 'failed' } : m,
+      );
+
+    case 'retry':
+      return state.map((m) =>
+        m.tempId === action.tempId && m.status === 'failed' ? { ...m, status: 'pending' } : m,
       );
 
     default:

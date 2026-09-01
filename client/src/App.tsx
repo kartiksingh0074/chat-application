@@ -1,18 +1,41 @@
-import { useState } from 'react';
+import { AuthProvider, useAuth } from './auth/AuthProvider.js';
 import { SocketProvider } from './socket/SocketProvider.js';
-import { LoginForm, type LoggedInUser } from './components/LoginForm.js';
-import { ChatShell } from './components/ChatShell.js';
+import { ThemeProvider } from './ui/ThemeProvider.js';
+import { ToastProvider } from './ui/ToastProvider.js';
+import { AuthPage } from './pages/AuthPage.js';
+import { ChatPage } from './pages/ChatPage.js';
+import { Spinner } from './ui/primitives.js';
 
-export function App() {
-  const [user, setUser] = useState<LoggedInUser | null>(null);
+function Routes() {
+  const { user, token, ready } = useAuth();
 
-  if (!user) {
-    return <LoginForm onLogin={setUser} />;
+  // Wait for the stored session to be read, otherwise a refresh flashes the
+  // login screen before restoring.
+  if (!ready) {
+    return (
+      <div className="flex h-full items-center justify-center text-content-muted">
+        <Spinner />
+      </div>
+    );
   }
 
+  if (!user || !token) return <AuthPage />;
+
   return (
-    <SocketProvider token={user.token}>
-      <ChatShell token={user.token} userId={user.id} username={user.username} />
+    <SocketProvider token={token}>
+      <ChatPage />
     </SocketProvider>
+  );
+}
+
+export function App() {
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Routes />
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

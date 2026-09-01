@@ -7,6 +7,7 @@ import { allowedOrigins, env } from './config/env.js';
 import { logger } from './logger.js';
 import { authRouter } from './auth/routes.js';
 import { roomsRouter } from './rooms/routes.js';
+import { usersRouter } from './users/routes.js';
 import { uploadsRouter } from './uploads/routes.js';
 import { createSocketServer } from './socket/index.js';
 import { registry } from './metrics/metrics.js';
@@ -35,6 +36,7 @@ app.get('/metrics', async (_req, res) => {
 
 app.use('/auth', authRouter);
 app.use('/rooms', roomsRouter);
+app.use('/users', usersRouter);
 app.use('/uploads', uploadsRouter);
 
 const httpServer = http.createServer(app);
