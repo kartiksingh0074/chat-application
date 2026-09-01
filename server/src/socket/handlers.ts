@@ -4,8 +4,9 @@ import { ulid } from 'ulidx';
 import { and, eq } from 'drizzle-orm';
 import type { ClientToServerEvents, ServerToClientEvents } from '@chat-application/shared';
 import { db } from '../db/client.js';
-import { messages, roomMembers } from '../db/schema.js';
+import { roomMembers } from '../db/schema.js';
 import { logger } from '../logger.js';
+import { persistQueue } from '../queues/persistQueue.js';
 import type { SocketData } from './index.js';
 
 type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -63,24 +64,11 @@ export function registerHandlers(socket: IoSocket) {
       return;
     }
 
+    // Validate -> assign ID -> broadcast -> ack -> enqueue. The socket
+    // process never writes to Postgres on the hot path; a worker persists
+    // the message asynchronously (see server/src/worker/persistWorker.ts).
     const id = ulid();
     const createdAt = new Date();
-
-    try {
-      await db.insert(messages).values({
-        id,
-        roomId,
-        senderId: socket.data.userId,
-        body: body ?? null,
-        attachmentKey: attachmentKey ?? null,
-        createdAt,
-      });
-    } catch (err) {
-      logger.error({ err, roomId, senderId: socket.data.userId }, 'failed to persist message');
-      socket.emit('error', { code: 'send_failed', message: 'Message could not be sent' });
-      return;
-    }
-
     const createdAtIso = createdAt.toISOString();
 
     socket.to(roomId).emit('message:new', {
@@ -93,5 +81,20 @@ export function registerHandlers(socket: IoSocket) {
     });
 
     socket.emit('message:ack', { tempId, id, createdAt: createdAtIso });
+
+    try {
+      await persistQueue.add('persist', {
+        id,
+        roomId,
+        senderId: socket.data.userId,
+        body: body ?? null,
+        attachmentKey: attachmentKey ?? null,
+        createdAt: createdAtIso,
+      });
+    } catch (err) {
+      // The client already got its ack; this is a best-effort log only,
+      // there is no in-flight request left to fail back to the sender.
+      logger.error({ err, roomId, messageId: id }, 'failed to enqueue message for persistence');
+    }
   });
 }

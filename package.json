@@ -17,6 +17,7 @@
     "db:generate": "npm run db:generate -w server",
     "db:migrate": "npm run db:migrate -w server",
     "seed": "npm run seed -w server",
-    "seed:bulk": "npm run seed:bulk -w server"
+    "seed:bulk": "npm run seed:bulk -w server",
+    "dev:worker": "npm run worker:dev -w server"
   }
 }

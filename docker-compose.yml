@@ -28,5 +28,23 @@ services:
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.worker
+    environment:
+      # Container-to-container hostnames on the compose network, not the
+      # host-mapped ports (5433/6379) the app uses from outside Docker.
+      DATABASE_URL: postgres://chatapp:chatapp@postgres:5432/chatapp
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRES_IN: 15m
+      CORS_ORIGIN: http://localhost:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres-data:
