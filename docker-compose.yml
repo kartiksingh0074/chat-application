@@ -6,7 +6,10 @@ services:
       POSTGRES_PASSWORD: chatapp
       POSTGRES_DB: chatapp
     ports:
-      - "5432:5432"
+      # Host port 5433, not 5432: this machine also runs a native Windows
+      # PostgreSQL service on 5432, and "localhost" resolving to IPv4 vs IPv6
+      # could land on either listener. See docs/decisions.md.
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

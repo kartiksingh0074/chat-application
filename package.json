@@ -6,6 +6,9 @@
     "server",
     "client"
   ],
+  "dependencies": {
+    "drizzle-orm": "^0.45.2"
+  },
   "scripts": {
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",

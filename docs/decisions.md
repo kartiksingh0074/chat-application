@@ -17,6 +17,23 @@ formally calls this out as a Phase 6 hardening step, but there's no simpler inte
 building first — doing it correctly from the start avoids a rework pass later. Phase 6 still adds
 the Origin whitelist and per-socket rate limiting on top of this.
 
+**`drizzle-orm` added as a root-level dependency too, not just in `server`.** `drizzle-kit`'s
+binary is hoisted to the repo root `node_modules`, and its internal compatibility check does a
+bare `import("drizzle-orm/relations")` that resolves from the binary's own location upward — it
+never sees `server/node_modules`, so without a root-level copy `drizzle-kit generate` fails with
+the misleading "Please install latest version of drizzle-orm" even when the right version is
+installed. This is a known npm-workspaces/drizzle-kit interaction, not something wrong with our
+setup.
+
+**Postgres container published on host port 5433, not 5432.** This machine already runs a native
+Windows PostgreSQL 16 service that auto-starts and binds `0.0.0.0:5432` (IPv4); Docker's port
+publish for the same 5432 bound only the IPv6 side (`::5432`). "localhost" resolving to whichever
+one first meant connections randomly hit the wrong Postgres instance, surfacing as a misleading
+"password authentication failed" (Postgres intentionally doesn't distinguish "wrong password" from
+"role doesn't exist" in that message). Remapping the container to 5433 avoids the collision
+entirely rather than touching the native service. `DATABASE_URL` in `.env.example`/`server/.env`
+uses port 5433 accordingly.
+
 **Docker Desktop over local Postgres/Redis, WSL2 required.** Followed §2 as written. This machine
 needed WSL2 installed and enabled (Windows 11 Home only supports Docker's WSL2 backend, not
 Hyper-V) plus firmware virtualization already on — both are one-time host setup, not part of the

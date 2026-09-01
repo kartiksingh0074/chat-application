@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll } from 'vitest';
 
 beforeAll(() => {
-  process.env.DATABASE_URL ??= 'postgres://chatapp:chatapp@localhost:5432/chatapp';
+  process.env.DATABASE_URL ??= 'postgres://chatapp:chatapp@localhost:5433/chatapp';
   process.env.REDIS_URL ??= 'redis://localhost:6379';
   process.env.JWT_SECRET ??= 'test-secret';
   process.env.CORS_ORIGIN ??= 'http://localhost:5173';
