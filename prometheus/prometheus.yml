@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: chat-nodes
+    metrics_path: /metrics
+    static_configs:
+      # Scraped directly, not via nginx: going through the load balancer
+      # would randomly hit one instance and blur the per-node series.
+      - targets: ["node-1:4000", "node-2:4000"]

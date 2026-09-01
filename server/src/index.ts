@@ -9,6 +9,7 @@ import { authRouter } from './auth/routes.js';
 import { roomsRouter } from './rooms/routes.js';
 import { uploadsRouter } from './uploads/routes.js';
 import { createSocketServer } from './socket/index.js';
+import { registry } from './metrics/metrics.js';
 
 const app = express();
 
@@ -23,6 +24,13 @@ app.use(
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', nodeId: env.NODE_ID });
+});
+
+// Scraped per-instance (Prometheus hits node-1/node-2 directly, not through
+// nginx) so each instance's series stay distinguishable by their nodeId label.
+app.get('/metrics', async (_req, res) => {
+  res.set('Content-Type', registry.contentType);
+  res.end(await registry.metrics());
 });
 
 app.use('/auth', authRouter);

@@ -8,6 +8,7 @@ import { verifyToken } from '../auth/jwt.js';
 import { logger } from '../logger.js';
 import { registerHandlers } from './handlers.js';
 import { markOnline, markOffline } from '../presence/presence.js';
+import { activeSockets, wsReconnectionsTotal } from '../metrics/metrics.js';
 
 export interface SocketData {
   userId: string;
@@ -62,11 +63,16 @@ export function createSocketServer(httpServer: HttpServer) {
 
   io.on('connection', (socket) => {
     logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket connected');
+    activeSockets.inc();
+    if (socket.handshake.auth['reconnect'] === true) {
+      wsReconnectionsTotal.inc();
+    }
     registerHandlers(socket);
     void markOnline(io, socket.data.userId);
 
     socket.on('disconnect', () => {
       logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket disconnected');
+      activeSockets.dec();
       void markOffline(io, socket.data.userId);
     });
   });

@@ -9,6 +9,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4000),
   CORS_ORIGIN: z.string().min(1),
   NODE_ID: z.string().default('local'),
+  // 'queue' is the real Phase 4+ behaviour. 'sync' restores the Phase 1
+  // hot-path write so experiment 2 can measure both under the same load.
+  PERSIST_MODE: z.enum(['queue', 'sync']).default('queue'),
   // Must be the endpoint the *browser* can reach: it gets baked into the
   // presigned URL, which the browser (not this process) then PUTs to.
   MINIO_ENDPOINT: z.string().default('localhost'),

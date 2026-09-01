@@ -25,6 +25,12 @@ export function acquireSocket(token: string): AppSocket {
     // (separate requests that could land on different nodes) would break.
     // A single persistent WS connection naturally stays pinned to one node.
     socket = io(API_BASE_URL, { auth: { token }, transports: ['websocket'] });
+
+    // Lets the server distinguish a reconnect from a fresh connect, which is
+    // what ws_reconnections_total counts.
+    socket.io.on('reconnect_attempt', () => {
+      if (socket) socket.auth = { token, reconnect: true };
+    });
   }
   subscriberCount += 1;
   return socket;

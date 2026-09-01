@@ -4,9 +4,11 @@ import { ulid } from 'ulidx';
 import { and, eq } from 'drizzle-orm';
 import type { ClientToServerEvents, ServerToClientEvents } from '@chat-application/shared';
 import { db } from '../db/client.js';
-import { roomMembers } from '../db/schema.js';
+import { messages, roomMembers } from '../db/schema.js';
+import { env } from '../config/env.js';
 import { logger } from '../logger.js';
 import { persistQueue } from '../queues/persistQueue.js';
+import { messagesReceivedTotal, messagesRejectedTotal } from '../metrics/metrics.js';
 import type { SocketData } from './index.js';
 
 type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -75,21 +77,26 @@ export function registerHandlers(socket: IoSocket) {
 
   socket.on('message:send', async (payload) => {
     if (!withinRateLimit()) {
+      messagesRejectedTotal.inc({ reason: 'rate_limited' });
       socket.emit('error', { code: 'rate_limited', message: 'Too many messages, slow down' });
       return;
     }
 
     const parsed = messageSendSchema.safeParse(payload);
     if (!parsed.success) {
+      messagesRejectedTotal.inc({ reason: 'invalid_payload' });
       socket.emit('error', { code: 'invalid_payload', message: parsed.error.message });
       return;
     }
     const { roomId, tempId, body, attachmentKey } = parsed.data;
 
     if (!(await isRoomMember(roomId, socket.data.userId))) {
+      messagesRejectedTotal.inc({ reason: 'not_a_member' });
       socket.emit('error', { code: 'not_a_member', message: 'You are not a member of this room' });
       return;
     }
+
+    messagesReceivedTotal.inc();
 
     // Validate -> assign ID -> broadcast -> ack -> enqueue. The socket
     // process never writes to Postgres on the hot path; a worker persists
@@ -109,19 +116,26 @@ export function registerHandlers(socket: IoSocket) {
 
     socket.emit('message:ack', { tempId, id, createdAt: createdAtIso });
 
+    const row = {
+      id,
+      roomId,
+      senderId: socket.data.userId,
+      body: body ?? null,
+      attachmentKey: attachmentKey ?? null,
+    };
+
     try {
-      await persistQueue.add('persist', {
-        id,
-        roomId,
-        senderId: socket.data.userId,
-        body: body ?? null,
-        attachmentKey: attachmentKey ?? null,
-        createdAt: createdAtIso,
-      });
+      if (env.PERSIST_MODE === 'sync') {
+        // Phase 1's code path, kept only so experiment 2 can measure the
+        // event loop cost of writing to Postgres on the hot path.
+        await db.insert(messages).values({ ...row, createdAt });
+      } else {
+        await persistQueue.add('persist', { ...row, createdAt: createdAtIso });
+      }
     } catch (err) {
       // The client already got its ack; this is a best-effort log only,
       // there is no in-flight request left to fail back to the sender.
-      logger.error({ err, roomId, messageId: id }, 'failed to enqueue message for persistence');
+      logger.error({ err, roomId, messageId: id }, 'failed to persist message');
     }
   });
 }
