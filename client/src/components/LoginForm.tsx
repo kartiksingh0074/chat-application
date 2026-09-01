@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { API_BASE_URL } from '../config.js';
 
-const AUTH_URL = 'http://localhost:4000/auth/login';
+const AUTH_URL = `${API_BASE_URL}/auth/login`;
 
 export interface LoggedInUser {
   token: string;

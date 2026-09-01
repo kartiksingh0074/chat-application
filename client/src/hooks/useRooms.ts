@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../config.js';
 
 export interface Room {
   id: string;
@@ -6,7 +7,7 @@ export interface Room {
   isDirect: boolean;
 }
 
-const ROOMS_URL = 'http://localhost:4000/rooms';
+const ROOMS_URL = `${API_BASE_URL}/rooms`;
 
 export function useRooms(token: string) {
   const [rooms, setRooms] = useState<Room[]>([]);

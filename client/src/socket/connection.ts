@@ -1,7 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ClientToServerEvents, ServerToClientEvents } from '@chat-application/shared';
-
-const SERVER_URL = 'http://localhost:4000';
+import { API_BASE_URL } from '../config.js';
 
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -21,7 +20,11 @@ export function acquireSocket(token: string): AppSocket {
     pendingTeardown = null;
   }
   if (!socket) {
-    socket = io(SERVER_URL, { auth: { token } });
+    // WebSocket-only: nginx's `least_conn` balances at connection time with
+    // no sticky-session config, so Socket.IO's HTTP long-polling handshake
+    // (separate requests that could land on different nodes) would break.
+    // A single persistent WS connection naturally stays pinned to one node.
+    socket = io(API_BASE_URL, { auth: { token }, transports: ['websocket'] });
   }
   subscriberCount += 1;
   return socket;

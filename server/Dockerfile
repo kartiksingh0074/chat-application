@@ -13,4 +13,9 @@ RUN npm ci
 COPY packages/shared packages/shared
 COPY server server
 
-CMD ["npx", "tsx", "server/src/worker/persistWorker.ts"]
+EXPOSE 4000
+
+# Default: the app server. The worker service overrides this command
+# (see docker-compose.yml) to run the same image as a queue consumer
+# instead, sharing one build rather than maintaining two Dockerfiles.
+CMD ["npx", "tsx", "server/src/index.ts"]

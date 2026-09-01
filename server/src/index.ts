@@ -20,6 +20,10 @@ app.use(
   }),
 );
 
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', nodeId: env.NODE_ID });
+});
+
 app.use('/auth', authRouter);
 app.use('/rooms', roomsRouter);
 

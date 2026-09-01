@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@chat-application/shared": "*",
+    "@socket.io/redis-adapter": "^8.3.0",
     "argon2": "^0.41.1",
     "bullmq": "^5.28.2",
     "cors": "^2.8.5",

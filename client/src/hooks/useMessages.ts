@@ -3,8 +3,8 @@ import { ulid } from 'ulidx';
 import type { Message } from '@chat-application/shared';
 import { useSocket } from '../socket/SocketProvider.js';
 import { messagesReducer, type DisplayMessage } from './messagesReducer.js';
+import { API_BASE_URL } from '../config.js';
 
-const API_URL = 'http://localhost:4000';
 const PAGE_SIZE = 50;
 const SEND_TIMEOUT_MS = 10_000;
 
@@ -26,7 +26,7 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
   const pendingTimeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   async function fetchPage(before?: string): Promise<MessagesPage> {
-    const url = new URL(`${API_URL}/rooms/${roomId}/messages`);
+    const url = new URL(`${API_BASE_URL}/rooms/${roomId}/messages`);
     url.searchParams.set('limit', String(PAGE_SIZE));
     if (before) url.searchParams.set('before', before);
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

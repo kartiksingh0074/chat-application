@@ -8,6 +8,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   PORT: z.coerce.number().int().positive().default(4000),
   CORS_ORIGIN: z.string().min(1),
+  NODE_ID: z.string().default('local'),
 });
 
 export const env = envSchema.parse(process.env);

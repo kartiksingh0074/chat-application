@@ -1,3 +1,12 @@
+x-app-env: &app-env
+  # Container-to-container hostnames on the compose network, not the
+  # host-mapped ports (5433/6379) the app uses from outside Docker.
+  DATABASE_URL: postgres://chatapp:chatapp@postgres:5432/chatapp
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: change-me-in-production
+  JWT_EXPIRES_IN: 15m
+  CORS_ORIGIN: http://localhost:5173
+
 services:
   postgres:
     image: postgres:16
@@ -31,19 +40,63 @@ services:
   worker:
     build:
       context: .
-      dockerfile: server/Dockerfile.worker
+      dockerfile: server/Dockerfile
+    command: ["npx", "tsx", "server/src/worker/persistWorker.ts"]
     environment:
-      # Container-to-container hostnames on the compose network, not the
-      # host-mapped ports (5433/6379) the app uses from outside Docker.
-      DATABASE_URL: postgres://chatapp:chatapp@postgres:5432/chatapp
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: change-me-in-production
-      JWT_EXPIRES_IN: 15m
-      CORS_ORIGIN: http://localhost:5173
+      <<: *app-env
+      NODE_ID: worker
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+
+  node-1:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      <<: *app-env
+      NODE_ID: node-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', r => process.exit(0)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  node-2:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      <<: *app-env
+      NODE_ID: node-2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', r => process.exit(0)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      node-1:
+        condition: service_healthy
+      node-2:
         condition: service_healthy
 
 volumes:
