@@ -1,4 +1,4 @@
-import type { Server, Socket } from 'socket.io';
+import type { Socket } from 'socket.io';
 import { z } from 'zod';
 import { ulid } from 'ulidx';
 import { and, eq } from 'drizzle-orm';
@@ -8,7 +8,6 @@ import { messages, roomMembers } from '../db/schema.js';
 import { logger } from '../logger.js';
 import type { SocketData } from './index.js';
 
-type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 
 const roomJoinSchema = z.object({ roomId: z.string().min(1) });
@@ -27,7 +26,7 @@ async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
   return membership !== undefined;
 }
 
-export function registerHandlers(io: IoServer, socket: IoSocket) {
+export function registerHandlers(socket: IoSocket) {
   socket.on('room:join', async (payload) => {
     const parsed = roomJoinSchema.safeParse(payload);
     if (!parsed.success) {
@@ -84,7 +83,7 @@ export function registerHandlers(io: IoServer, socket: IoSocket) {
 
     const createdAtIso = createdAt.toISOString();
 
-    io.to(roomId).emit('message:new', {
+    socket.to(roomId).emit('message:new', {
       id,
       roomId,
       senderId: socket.data.userId,

@@ -34,7 +34,7 @@ export function createSocketServer(httpServer: HttpServer) {
 
   io.on('connection', (socket) => {
     logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket connected');
-    registerHandlers(io, socket);
+    registerHandlers(socket);
     socket.on('disconnect', () => {
       logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket disconnected');
     });
