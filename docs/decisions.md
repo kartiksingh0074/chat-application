@@ -50,3 +50,30 @@ production-facing `drizzle-orm` SQL-injection advisory in the same `npm audit` r
 script (`server/src/seed.ts`) creates a fixed demo room ("general") with two demo users as
 members, since Phase 1's exit criterion only needs two tabs able to join *a* room and exchange
 messages, and room-management endpoints aren't specified anywhere in the phase plan.
+
+## Phase 5
+
+**Client now talks to nginx by default, not a single local server process.** `client/src/config.ts`
+defaults `API_BASE_URL` to `http://localhost:8080` (nginx) and is overridable via
+`VITE_API_BASE_URL` for pointing at a bare `npm run dev -w server` instance on `:4000` when
+horizontal-scaling behavior specifically isn't what's being tested. This is a one-way move: from
+Phase 5 on, the tested/expected topology is nginx + N node containers, not a single local process.
+
+**`transports: ['websocket']` forced on the client socket.** nginx's `least_conn` has no
+sticky-session config. A single long-lived WebSocket connection naturally stays pinned to whichever
+node it was balanced to; Socket.IO's default HTTP long-polling handshake is a sequence of separate
+requests that could each get load-balanced to a *different* node and never complete the handshake.
+Skipping polling entirely sidesteps the problem rather than configuring session affinity.
+
+**nginx upstream needs an explicit `zone` for `least_conn` to actually balance anything.** Hit this
+directly: with the default `worker_processes auto` (one nginx worker per CPU core) and no `zone` on
+the upstream block, each worker process tracks connection counts independently in its own memory.
+Every worker's view ties at zero, so every worker picks the same first-listed backend — load never
+actually balances, even though the config looks correct. `zone chat_backend_zone 64k;` shares the
+counters across workers. Discovered when a scripted two-client test showed both landing on `node-1`
+despite `least_conn` being configured.
+
+**`server/Dockerfile.worker` merged into a single `server/Dockerfile`.** Both the worker and the
+app server (`node-1`/`node-2`) are the same image; only the container `command` differs
+(`docker-compose.yml` overrides it for the `worker` service). Avoids maintaining two near-identical
+Dockerfiles that would drift out of sync as the app grows.
