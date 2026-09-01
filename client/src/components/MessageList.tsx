@@ -1,19 +1,36 @@
+import { Virtuoso } from 'react-virtuoso';
 import type { DisplayMessage } from '../hooks/useMessages.js';
 
 interface MessageListProps {
   messages: DisplayMessage[];
   currentUsername: string;
   currentUserId: string;
+  firstItemIndex: number;
+  loadOlder: () => void;
 }
 
-export function MessageList({ messages, currentUsername, currentUserId }: MessageListProps) {
+const STATUS_OPACITY: Record<DisplayMessage['status'], number> = {
+  pending: 0.5,
+  delivered: 1,
+  failed: 1,
+};
+
+export function MessageList({ messages, currentUsername, currentUserId, firstItemIndex, loadOlder }: MessageListProps) {
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-      {messages.map((m) => (
-        <div key={m.tempId ?? m.id} style={{ opacity: m.status === 'pending' ? 0.5 : 1 }}>
+    <Virtuoso
+      style={{ flex: 1 }}
+      data={messages}
+      firstItemIndex={firstItemIndex}
+      initialTopMostItemIndex={messages.length - 1}
+      startReached={loadOlder}
+      followOutput="smooth"
+      computeItemKey={(_, m) => m.tempId ?? m.id}
+      itemContent={(_, m) => (
+        <div style={{ padding: '2px 8px', opacity: STATUS_OPACITY[m.status] }}>
           <strong>{m.senderId === currentUserId ? currentUsername : m.senderId}:</strong> {m.body}
+          {m.status === 'failed' && <span style={{ color: 'red', marginLeft: 6 }}>failed to send</span>}
         </div>
-      ))}
-    </div>
+      )}
+    />
   );
 }

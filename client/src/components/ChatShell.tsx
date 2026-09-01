@@ -14,7 +14,7 @@ interface ChatShellProps {
 export function ChatShell({ token, userId, username }: ChatShellProps) {
   const { rooms, loading, error } = useRooms(token);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
-  const { messages, sendMessage } = useMessages(activeRoomId, userId);
+  const { messages, sendMessage, loadOlder, firstItemIndex } = useMessages(activeRoomId, userId, token);
 
   if (loading) return <p style={{ margin: '2rem' }}>Loading rooms...</p>;
   if (error) return <p style={{ margin: '2rem', color: 'red' }}>{error}</p>;
@@ -25,7 +25,13 @@ export function ChatShell({ token, userId, username }: ChatShellProps) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {activeRoomId ? (
           <>
-            <MessageList messages={messages} currentUsername={username} currentUserId={userId} />
+            <MessageList
+              messages={messages}
+              currentUsername={username}
+              currentUserId={userId}
+              firstItemIndex={firstItemIndex}
+              loadOlder={loadOlder}
+            />
             <Composer onSend={sendMessage} />
           </>
         ) : (

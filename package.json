@@ -13,9 +13,10 @@
     "dev:server": "npm run dev -w server",
     "dev:client": "npm run dev -w client",
     "build": "npm run build -w packages/shared && npm run build -w server && npm run build -w client",
-    "test": "npm run test -w server",
+    "test": "npm run test -w server && npm run test -w client",
     "db:generate": "npm run db:generate -w server",
     "db:migrate": "npm run db:migrate -w server",
-    "seed": "npm run seed -w server"
+    "seed": "npm run seed -w server",
+    "seed:bulk": "npm run seed:bulk -w server"
   }
 }

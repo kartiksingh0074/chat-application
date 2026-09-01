@@ -10,7 +10,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "seed:bulk": "tsx src/seedBulk.ts"
   },
   "dependencies": {
     "@chat-application/shared": "*",
