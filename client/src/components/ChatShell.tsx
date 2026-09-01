@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRooms } from '../hooks/useRooms.js';
 import { useMessages } from '../hooks/useMessages.js';
+import { useUpload } from '../hooks/useUpload.js';
 import { RoomList } from './RoomList.js';
 import { MessageList } from './MessageList.js';
 import { Composer } from './Composer.js';
@@ -15,6 +16,7 @@ export function ChatShell({ token, userId, username }: ChatShellProps) {
   const { rooms, loading, error } = useRooms(token);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const { messages, sendMessage, loadOlder, firstItemIndex } = useMessages(activeRoomId, userId, token);
+  const { upload, uploading, error: uploadError } = useUpload(token, activeRoomId);
 
   if (loading) return <p style={{ margin: '2rem' }}>Loading rooms...</p>;
   if (error) return <p style={{ margin: '2rem', color: 'red' }}>{error}</p>;
@@ -32,7 +34,12 @@ export function ChatShell({ token, userId, username }: ChatShellProps) {
               firstItemIndex={firstItemIndex}
               loadOlder={loadOlder}
             />
-            <Composer onSend={sendMessage} />
+            <Composer
+              onSend={sendMessage}
+              onAttach={upload}
+              uploading={uploading}
+              uploadError={uploadError}
+            />
           </>
         ) : (
           <p style={{ margin: '2rem', color: '#666' }}>Select a room to start chatting.</p>

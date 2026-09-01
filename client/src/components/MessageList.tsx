@@ -1,5 +1,6 @@
 import { Virtuoso } from 'react-virtuoso';
 import type { DisplayMessage } from '../hooks/useMessages.js';
+import { attachmentUrl } from '../config.js';
 
 interface MessageListProps {
   messages: DisplayMessage[];
@@ -29,6 +30,15 @@ export function MessageList({ messages, currentUsername, currentUserId, firstIte
         <div style={{ padding: '2px 8px', opacity: STATUS_OPACITY[m.status] }}>
           <strong>{m.senderId === currentUserId ? currentUsername : m.senderId}:</strong> {m.body}
           {m.status === 'failed' && <span style={{ color: 'red', marginLeft: 6 }}>failed to send</span>}
+          {m.attachmentKey && (
+            <div>
+              <img
+                src={attachmentUrl(m.attachmentKey)}
+                alt="attachment"
+                style={{ maxWidth: 320, maxHeight: 240, display: 'block', marginTop: 4 }}
+              />
+            </div>
+          )}
         </div>
       )}
     />

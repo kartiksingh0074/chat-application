@@ -13,12 +13,19 @@ type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string
 
 const roomJoinSchema = z.object({ roomId: z.string().min(1) });
 const roomLeaveSchema = z.object({ roomId: z.string().min(1) });
-const messageSendSchema = z.object({
-  roomId: z.string().min(1),
-  tempId: z.string().min(1),
-  body: z.string().min(1).max(4000).optional(),
-  attachmentKey: z.string().min(1).optional(),
-});
+const messageSendSchema = z
+  .object({
+    roomId: z.string().min(1),
+    tempId: z.string().min(1),
+    body: z.string().min(1).max(4000).optional(),
+    attachmentKey: z.string().min(1).optional(),
+  })
+  .refine((p) => p.body !== undefined || p.attachmentKey !== undefined, {
+    message: 'a message needs a body, an attachment, or both',
+  });
+
+const RATE_LIMIT_WINDOW_MS = 10_000;
+const RATE_LIMIT_MAX_MESSAGES = 20;
 
 async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
   const membership = await db.query.roomMembers.findFirst({
@@ -28,6 +35,21 @@ async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
 }
 
 export function registerHandlers(socket: IoSocket) {
+  // Per-socket, so this is connection-local by definition and needs no
+  // Redis round-trip - a socket only ever exists on one node instance.
+  let windowStartedAt = Date.now();
+  let sentInWindow = 0;
+
+  function withinRateLimit(): boolean {
+    const now = Date.now();
+    if (now - windowStartedAt > RATE_LIMIT_WINDOW_MS) {
+      windowStartedAt = now;
+      sentInWindow = 0;
+    }
+    sentInWindow += 1;
+    return sentInWindow <= RATE_LIMIT_MAX_MESSAGES;
+  }
+
   socket.on('room:join', async (payload) => {
     const parsed = roomJoinSchema.safeParse(payload);
     if (!parsed.success) {
@@ -52,6 +74,11 @@ export function registerHandlers(socket: IoSocket) {
   });
 
   socket.on('message:send', async (payload) => {
+    if (!withinRateLimit()) {
+      socket.emit('error', { code: 'rate_limited', message: 'Too many messages, slow down' });
+      return;
+    }
+
     const parsed = messageSendSchema.safeParse(payload);
     if (!parsed.success) {
       socket.emit('error', { code: 'invalid_payload', message: parsed.error.message });

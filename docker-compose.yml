@@ -6,6 +6,15 @@ x-app-env: &app-env
   JWT_SECRET: change-me-in-production
   JWT_EXPIRES_IN: 15m
   CORS_ORIGIN: http://localhost:5173
+  # Deliberately the host-facing endpoint, not the compose hostname: this
+  # value is baked into presigned URLs that the *browser* PUTs to. Signing
+  # is offline, so these containers never need to reach it themselves.
+  MINIO_ENDPOINT: localhost
+  MINIO_PORT: 9000
+  MINIO_USE_SSL: "false"
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin123
+  MINIO_BUCKET: attachments
 
 services:
   postgres:
@@ -33,6 +42,23 @@ services:
       - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -101,3 +127,4 @@ services:
 
 volumes:
   postgres-data:
+  minio-data:

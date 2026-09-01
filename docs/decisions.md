@@ -73,7 +73,38 @@ actually balances, even though the config looks correct. `zone chat_backend_zone
 counters across workers. Discovered when a scripted two-client test showed both landing on `node-1`
 despite `least_conn` being configured.
 
-**`server/Dockerfile.worker` merged into a single `server/Dockerfile`.** Both the worker and the
+**`server/Dockerfile.worker` merged into a single `server/Dockerfile`.** (Phase 5) Both the worker and the
 app server (`node-1`/`node-2`) are the same image; only the container `command` differs
 (`docker-compose.yml` overrides it for the `worker` service). Avoids maintaining two near-identical
 Dockerfiles that would drift out of sync as the app grows.
+
+## Phase 6
+
+**`minio` SDK over AWS SDK v3.** §2 names MinIO but not a client library. The official `minio`
+package is purpose-built for exactly this (`presignedPutObject`) and is far lighter than pulling in
+`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`.
+
+**`MINIO_ENDPOINT` is the browser-facing host, even inside containers.** The endpoint gets baked
+into the presigned URL, and it's the *browser* that PUTs to it - so it must be `localhost:9000`,
+not the compose hostname `minio:9000`, which a browser can't resolve. This works from inside
+node-1/node-2 only because presigning is offline (see next entry).
+
+**`MINIO_REGION` is pinned so presigning needs no network call.** Found this the hard way: without
+an explicit region the SDK does a `GetBucketLocation` round-trip before signing, which fails with
+`ECONNREFUSED 127.0.0.1:9000` inside a container (where the browser-facing endpoint isn't
+routable), and — because Express 4 doesn't catch async handler rejections — took the whole node
+process down, surfacing as a 502 from nginx. Pinning the region makes signing pure local crypto.
+The presign route now also try/catches so a storage failure returns 500 instead of crashing.
+
+**Never `z.coerce.boolean()` for env flags.** It's JS `Boolean()` semantics, so the string
+`"false"` is truthy and `MINIO_USE_SSL=false` turned TLS *on*, producing a confusing
+`packet length too long` SSL error against a plaintext MinIO. Parsed as `v === 'true'` instead.
+
+**Attachments bucket is public-read; uploads still require a presigned PUT.** Lets the client
+`<img src>` an attachment directly without a presigned-GET round-trip per render. Reads being
+public is acceptable for this project; writes are not.
+
+**Known accepted vulnerability: `decode-uri-component` (moderate, DoS).** Pulled in transitively by
+`minio` -> `query-string`. Not reachable in our usage: object keys are server-generated ULIDs and
+no attacker-controlled percent-encoded input reaches that parser. The only npm-offered fix is a
+breaking downgrade to `minio@7.0.26`. Same posture as the esbuild entry above.

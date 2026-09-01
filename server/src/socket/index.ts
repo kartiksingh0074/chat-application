@@ -3,7 +3,7 @@ import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import type { ClientToServerEvents, ServerToClientEvents } from '@chat-application/shared';
-import { env } from '../config/env.js';
+import { allowedOrigins, env } from '../config/env.js';
 import { verifyToken } from '../auth/jwt.js';
 import { logger } from '../logger.js';
 import { registerHandlers } from './handlers.js';
@@ -18,7 +18,16 @@ export type IoServer = Server<ClientToServerEvents, ServerToClientEvents, Record
 
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>(httpServer, {
-    cors: { origin: env.CORS_ORIGIN },
+    cors: { origin: allowedOrigins },
+    // Browsers do NOT apply the same-origin policy to WebSocket upgrades -
+    // any site can open a WS to us and the browser will send the user's
+    // cookies with it. The JWT living in handshake.auth (never a cookie) is
+    // the primary CSWSH defense; checking Origin here rejects such a
+    // connection outright, before a socket is even created.
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin;
+      callback(null, typeof origin === 'string' && allowedOrigins.includes(origin));
+    },
   });
 
   // Without this, a broadcast from a socket on one node instance would
@@ -27,6 +36,13 @@ export function createSocketServer(httpServer: HttpServer) {
   const pubClient = new Redis(env.REDIS_URL);
   const subClient = pubClient.duplicate();
   io.adapter(createAdapter(pubClient, subClient));
+
+  // The handshake's IncomingMessage is retained for the life of the socket
+  // otherwise, pinning its headers and buffers per connection. handshake.auth
+  // and handshake.headers are already snapshotted, so this is safe to drop.
+  io.engine.on('connection', (rawSocket: { request?: unknown }) => {
+    rawSocket.request = null;
+  });
 
   io.use((socket, next) => {
     const token = socket.handshake.auth['token'];

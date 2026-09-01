@@ -12,6 +12,7 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/seed.ts",
     "seed:bulk": "tsx src/seedBulk.ts",
+    "storage:init": "tsx src/storage/ensureBucket.ts",
     "worker": "tsx src/worker/persistWorker.ts",
     "worker:dev": "tsx watch src/worker/persistWorker.ts"
   },
@@ -26,6 +27,7 @@
     "express": "^4.21.1",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
+    "minio": "^8.0.2",
     "pg": "^8.13.1",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",

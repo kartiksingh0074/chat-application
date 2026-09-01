@@ -96,8 +96,10 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     }
   }
 
-  function sendMessage(body: string) {
-    if (!socket || !roomId || body.trim().length === 0) return;
+  function sendMessage(body?: string, attachmentKey?: string) {
+    const trimmed = body?.trim();
+    if (!socket || !roomId) return;
+    if (!trimmed && !attachmentKey) return;
 
     const tempId = ulid();
     dispatch({
@@ -107,13 +109,13 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
         tempId,
         roomId,
         senderId: currentUserId,
-        body,
-        attachmentKey: null,
+        body: trimmed ?? null,
+        attachmentKey: attachmentKey ?? null,
         createdAt: new Date().toISOString(),
         status: 'pending',
       },
     });
-    socket.emit('message:send', { roomId, tempId, body });
+    socket.emit('message:send', { roomId, tempId, body: trimmed, attachmentKey });
 
     const timeout = setTimeout(() => {
       pendingTimeouts.current.delete(tempId);

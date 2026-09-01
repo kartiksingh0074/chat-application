@@ -3,15 +3,16 @@ import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import { pinoHttp } from 'pino-http';
-import { env } from './config/env.js';
+import { allowedOrigins, env } from './config/env.js';
 import { logger } from './logger.js';
 import { authRouter } from './auth/routes.js';
 import { roomsRouter } from './rooms/routes.js';
+import { uploadsRouter } from './uploads/routes.js';
 import { createSocketServer } from './socket/index.js';
 
 const app = express();
 
-app.use(cors({ origin: env.CORS_ORIGIN }));
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 app.use(
   pinoHttp({
@@ -26,6 +27,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/auth', authRouter);
 app.use('/rooms', roomsRouter);
+app.use('/uploads', uploadsRouter);
 
 const httpServer = http.createServer(app);
 createSocketServer(httpServer);
