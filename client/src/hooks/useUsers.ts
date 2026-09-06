@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config.js';
 export interface DirectoryUser {
   id: string;
   username: string;
+  avatarKey?: string | null;
 }
 
 /** Debounced user search, for picking people to add to a room or DM. */

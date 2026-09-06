@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config.js';
 export interface Member {
   id: string;
   username: string;
+  avatarKey?: string | null;
   joinedAt: string;
 }
 
@@ -44,5 +45,10 @@ export function useMembers(token: string, roomId: string | null) {
     [members],
   );
 
-  return { members, loading, nameFor, reload: load };
+  const avatarFor = useCallback(
+    (userId: string) => members.find((m) => m.id === userId)?.avatarKey ?? null,
+    [members],
+  );
+
+  return { members, loading, nameFor, avatarFor, reload: load };
 }

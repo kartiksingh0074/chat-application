@@ -45,6 +45,11 @@ const BLOCKED_TYPES = new Set([
 /** Extensions rendered inline as images. SVG is deliberately absent. */
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif']);
 
+/** True when the type renders inline as a picture - used to gate avatars. */
+export function isImageContentType(contentType: string): boolean {
+  return IMAGE_EXTENSIONS.has(extensionForType(contentType));
+}
+
 export function isBlockedAttachmentType(contentType: string): boolean {
   return BLOCKED_TYPES.has(contentType.split(';')[0]!.trim().toLowerCase());
 }

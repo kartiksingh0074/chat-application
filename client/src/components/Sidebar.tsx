@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { roomTitle, type Room } from '../hooks/useRooms.js';
+import { roomAvatarKey, roomTitle, type Room } from '../hooks/useRooms.js';
 import { useStoredState } from '../hooks/useStoredState.js';
 import { Avatar, Button, EmptyState, Input, SidebarSkeleton } from '../ui/primitives.js';
 
@@ -10,6 +10,9 @@ interface SidebarProps {
   onSelect: (roomId: string) => void;
   onNewRoom: () => void;
   onNewDm: () => void;
+  onFindPeople: () => void;
+  peopleActive: boolean;
+  avatarKey?: string | null;
   onOpenSettings: () => void;
   onLogout: () => void;
   username: string;
@@ -59,6 +62,9 @@ export function Sidebar({
   onSelect,
   onNewRoom,
   onNewDm,
+  onFindPeople,
+  peopleActive,
+  avatarKey,
   onOpenSettings,
   onLogout,
   username,
@@ -90,7 +96,7 @@ export function Sidebar({
             }`}
         >
           {room.isDirect ? (
-            <Avatar name={title} size={26} />
+            <Avatar name={title} size={26} avatarKey={roomAvatarKey(room)} />
           ) : (
             <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-xs">
               #
@@ -122,6 +128,24 @@ export function Sidebar({
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="px-2 pt-2">
+        <button
+          onClick={onFindPeople}
+          aria-current={peopleActive ? 'true' : undefined}
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition
+            ${
+              peopleActive
+                ? 'bg-brand-subtle font-medium text-brand'
+                : 'text-content-muted hover:bg-surface-sunken hover:text-content'
+            }`}
+        >
+          <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-xs">
+            🔍
+          </span>
+          <span className="truncate">Find people</span>
+        </button>
       </div>
 
       <div className="px-3 py-2">
@@ -160,7 +184,7 @@ export function Sidebar({
       <div className="border-t border-border-subtle p-3">
         <div className="flex items-center gap-2.5">
           <div className="relative">
-            <Avatar name={username} size={32} />
+            <Avatar name={username} size={32} avatarKey={avatarKey} />
             <span
               title={connected ? 'Connected' : 'Reconnecting'}
               className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-surface-nav

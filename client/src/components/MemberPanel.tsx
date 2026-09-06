@@ -5,17 +5,31 @@ interface MemberPanelProps {
   members: Member[];
   online: Set<string>;
   currentUserId: string;
+  onOpenProfile: (userId: string, anchor: DOMRect) => void;
 }
 
-function MemberRow({ member, isOnline, isYou }: { member: Member; isOnline: boolean; isYou: boolean }) {
+function MemberRow({
+  member,
+  isOnline,
+  isYou,
+  onOpenProfile,
+}: {
+  member: Member;
+  isOnline: boolean;
+  isYou: boolean;
+  onOpenProfile: (userId: string, anchor: DOMRect) => void;
+}) {
   return (
     <li>
-      <div
-        className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-surface-sunken
-          ${isOnline ? '' : 'opacity-45'}`}
+      <button
+        onClick={(e) => onOpenProfile(member.id, e.currentTarget.getBoundingClientRect())}
+        aria-label={`View ${member.username}'s profile`}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition
+          hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-1
+          focus-visible:outline-brand ${isOnline ? '' : 'opacity-45'}`}
       >
         <span className="relative shrink-0">
-          <Avatar name={member.username} size={30} />
+          <Avatar name={member.username} size={30} avatarKey={member.avatarKey} />
           <span
             title={isOnline ? 'Online' : 'Offline'}
             className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-surface-nav
@@ -26,7 +40,7 @@ function MemberRow({ member, isOnline, isYou }: { member: Member; isOnline: bool
           {member.username}
           {isYou && <span className="text-content-muted"> (you)</span>}
         </span>
-      </div>
+      </button>
     </li>
   );
 }
@@ -36,7 +50,7 @@ function MemberRow({ member, isOnline, isYou }: { member: Member; isOnline: bool
  * actually reach; offline is dimmed rather than hidden so the room still shows
  * its full size.
  */
-export function MemberPanel({ members, online, currentUserId }: MemberPanelProps) {
+export function MemberPanel({ members, online, currentUserId, onOpenProfile }: MemberPanelProps) {
   const sorted = [...members].sort((a, b) => a.username.localeCompare(b.username));
   const onlineMembers = sorted.filter((m) => online.has(m.id));
   const offlineMembers = sorted.filter((m) => !online.has(m.id));
@@ -51,7 +65,13 @@ export function MemberPanel({ members, online, currentUserId }: MemberPanelProps
             </h3>
             <ul className="mb-4 flex flex-col gap-0.5">
               {onlineMembers.map((m) => (
-                <MemberRow key={m.id} member={m} isOnline isYou={m.id === currentUserId} />
+                <MemberRow
+                  key={m.id}
+                  member={m}
+                  isOnline
+                  isYou={m.id === currentUserId}
+                  onOpenProfile={onOpenProfile}
+                />
               ))}
             </ul>
           </>
@@ -64,7 +84,13 @@ export function MemberPanel({ members, online, currentUserId }: MemberPanelProps
             </h3>
             <ul className="flex flex-col gap-0.5">
               {offlineMembers.map((m) => (
-                <MemberRow key={m.id} member={m} isOnline={false} isYou={m.id === currentUserId} />
+                <MemberRow
+                  key={m.id}
+                  member={m}
+                  isOnline={false}
+                  isYou={m.id === currentUserId}
+                  onOpenProfile={onOpenProfile}
+                />
               ))}
             </ul>
           </>

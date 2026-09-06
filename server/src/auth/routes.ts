@@ -34,7 +34,7 @@ authRouter.post('/register', async (req, res) => {
   await db.insert(users).values({ id, username, passwordHash });
 
   const token = signToken({ userId: id, username });
-  res.status(201).json({ token, user: { id, username } });
+  res.status(201).json({ token, user: { id, username, avatarKey: null } });
 });
 
 authRouter.post('/login', async (req, res) => {
@@ -52,7 +52,10 @@ authRouter.post('/login', async (req, res) => {
   }
 
   const token = signToken({ userId: user.id, username: user.username });
-  res.status(200).json({ token, user: { id: user.id, username: user.username } });
+  res.status(200).json({
+    token,
+    user: { id: user.id, username: user.username, avatarKey: user.avatarKey },
+  });
 });
 
 // Proactively swapped by the client before the 15-minute token expires, so
@@ -65,7 +68,7 @@ authRouter.post('/refresh', requireAuth, async (req: AuthedRequest, res) => {
     return;
   }
   const token = signToken({ userId: user.id, username: user.username });
-  res.json({ token, user: { id: user.id, username: user.username } });
+  res.json({ token, user: { id: user.id, username: user.username, avatarKey: user.avatarKey } });
 });
 
 authRouter.get('/me', requireAuth, async (req: AuthedRequest, res) => {
@@ -74,5 +77,12 @@ authRouter.get('/me', requireAuth, async (req: AuthedRequest, res) => {
     res.status(404).json({ code: 'not_found', message: 'User not found' });
     return;
   }
-  res.json({ user: { id: user.id, username: user.username, createdAt: user.createdAt } });
+  res.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      avatarKey: user.avatarKey,
+      createdAt: user.createdAt,
+    },
+  });
 });

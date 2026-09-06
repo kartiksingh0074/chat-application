@@ -13,6 +13,9 @@ import { Button, Spinner } from '../ui/primitives.js';
 interface ComposerProps {
   onSend: (body?: string, attachmentKey?: string) => void;
   onAttach: (file: File) => Promise<string | null>;
+  onTyping?: () => void;
+  onStopTyping?: () => void;
+  typingLabel?: string;
   uploading?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -22,7 +25,16 @@ interface ComposerProps {
 // moment the send would already have failed.
 const COUNTER_VISIBLE_FROM = MAX_MESSAGE_LENGTH - 400;
 
-export function Composer({ onSend, onAttach, uploading, disabled, placeholder }: ComposerProps) {
+export function Composer({
+  onSend,
+  onAttach,
+  onTyping,
+  onStopTyping,
+  typingLabel,
+  uploading,
+  disabled,
+  placeholder,
+}: ComposerProps) {
   const [draft, setDraft] = useState('');
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,6 +55,7 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
     if (!canSend) return;
     onSend(draft, undefined);
     setDraft('');
+    onStopTyping?.();
     requestAnimationFrame(resize);
   }
 
@@ -65,6 +78,7 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
     if (!key) return;
     onSend(draft.trim() || undefined, key);
     setDraft('');
+    onStopTyping?.();
     requestAnimationFrame(resize);
   }
 
@@ -145,6 +159,8 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
           onChange={(e) => {
             setDraft(e.target.value);
             resize();
+            if (e.target.value.trim().length > 0) onTyping?.();
+            else onStopTyping?.();
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
@@ -162,8 +178,17 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
       </div>
 
       <div className="mt-1 flex items-baseline justify-between gap-3 px-1 text-xs">
-        <p className="text-content-muted">
-          <kbd className="font-sans">Enter</kbd> to send · <kbd className="font-sans">Shift+Enter</kbd> for a new line
+        {/* The typing line replaces the hint rather than stacking, so the
+            composer never changes height as people start and stop. */}
+        <p className="min-w-0 truncate text-content-muted" aria-live="polite">
+          {typingLabel ? (
+            <span className="text-content">{typingLabel}</span>
+          ) : (
+            <>
+              <kbd className="font-sans">Enter</kbd> to send ·{' '}
+              <kbd className="font-sans">Shift+Enter</kbd> for a new line
+            </>
+          )}
         </p>
         {draft.length >= COUNTER_VISIBLE_FROM && (
           <p

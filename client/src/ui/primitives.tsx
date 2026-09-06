@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { attachmentUrl } from '../config.js';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -44,8 +45,34 @@ export function Field({ label, htmlFor, children }: { label: string; htmlFor: st
   );
 }
 
-/** Deterministic avatar colour so a user looks the same everywhere. */
-export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
+/**
+ * An uploaded picture when the user has one, otherwise deterministic initials
+ * so the same person looks the same everywhere. A broken image URL falls back
+ * to the initials rather than leaving a gap.
+ */
+export function Avatar({
+  name,
+  size = 36,
+  avatarKey,
+}: {
+  name: string;
+  size?: number;
+  avatarKey?: string | null;
+}) {
+  const [broken, setBroken] = useState(false);
+
+  if (avatarKey && !broken) {
+    return (
+      <img
+        src={attachmentUrl(avatarKey)}
+        alt=""
+        onError={() => setBroken(true)}
+        className="shrink-0 rounded-full bg-surface-sunken object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
   const hue = [...name].reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) % 360, 7);
   return (
     <span

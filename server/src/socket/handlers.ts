@@ -19,6 +19,7 @@ type IoSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string
 
 const roomJoinSchema = z.object({ roomId: z.string().min(1) });
 const roomLeaveSchema = z.object({ roomId: z.string().min(1) });
+const typingSchema = z.object({ roomId: z.string().min(1) });
 const messageSendSchema = z
   .object({
     roomId: z.string().min(1),
@@ -32,6 +33,9 @@ const messageSendSchema = z
 
 const RATE_LIMIT_WINDOW_MS = 10_000;
 const RATE_LIMIT_MAX_MESSAGES = 20;
+// Typing fires far more often than sending, and costs a broadcast each time,
+// so it gets its own budget rather than eating the message allowance.
+const RATE_LIMIT_MAX_TYPING = 40;
 
 async function isRoomMember(roomId: string, userId: string): Promise<boolean> {
   const membership = await db.query.roomMembers.findFirst({
@@ -56,6 +60,43 @@ export function registerHandlers(socket: IoSocket) {
     return sentInWindow <= RATE_LIMIT_MAX_MESSAGES;
   }
 
+  let typingWindowStartedAt = Date.now();
+  let typingInWindow = 0;
+
+  function withinTypingRateLimit(): boolean {
+    const now = Date.now();
+    if (now - typingWindowStartedAt > RATE_LIMIT_WINDOW_MS) {
+      typingWindowStartedAt = now;
+      typingInWindow = 0;
+    }
+    typingInWindow += 1;
+    return typingInWindow <= RATE_LIMIT_MAX_TYPING;
+  }
+
+  /**
+   * Typing is high-frequency, so it must not hit Postgres. `room:join`
+   * already verified membership before joining, and a socket is only ever in
+   * rooms it joined - so the room set is an authoritative membership check
+   * that costs nothing.
+   */
+  function relayTyping(payload: unknown, typing: boolean) {
+    if (!withinTypingRateLimit()) return;
+
+    const parsed = typingSchema.safeParse(payload);
+    if (!parsed.success) return;
+
+    const { roomId } = parsed.data;
+    if (!socket.rooms.has(roomId)) return;
+
+    // socket.to, not io.to: you never need to be told that you are typing.
+    socket.to(roomId).emit('typing:update', {
+      roomId,
+      userId: socket.data.userId,
+      username: socket.data.username,
+      typing,
+    });
+  }
+
   socket.on('room:join', async (payload) => {
     const parsed = roomJoinSchema.safeParse(payload);
     if (!parsed.success) {
@@ -76,8 +117,20 @@ export function registerHandlers(socket: IoSocket) {
       socket.emit('error', { code: 'invalid_payload', message: parsed.error.message });
       return;
     }
-    await socket.leave(parsed.data.roomId);
+    const { roomId } = parsed.data;
+    if (socket.rooms.has(roomId)) {
+      socket.to(roomId).emit('typing:update', {
+        roomId,
+        userId: socket.data.userId,
+        username: socket.data.username,
+        typing: false,
+      });
+    }
+    await socket.leave(roomId);
   });
+
+  socket.on('typing:start', (payload) => relayTyping(payload, true));
+  socket.on('typing:stop', (payload) => relayTyping(payload, false));
 
   socket.on('message:send', async (payload) => {
     if (!withinRateLimit()) {

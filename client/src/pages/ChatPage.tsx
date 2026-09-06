@@ -5,14 +5,17 @@ import { useMessages } from '../hooks/useMessages.js';
 import { useMembers } from '../hooks/useMembers.js';
 import { useUpload } from '../hooks/useUpload.js';
 import { usePresence } from '../hooks/usePresence.js';
+import { useTyping, typingLabel } from '../hooks/useTyping.js';
 import { useSocket } from '../socket/SocketProvider.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { RoomHeader } from '../components/RoomHeader.js';
 import { MessageList } from '../components/MessageList.js';
 import { MemberPanel } from '../components/MemberPanel.js';
+import { UserCard } from '../components/UserCard.js';
 import { Composer } from '../components/Composer.js';
 import { ImageLightbox, MembersDialog, NewDmDialog, NewRoomDialog } from '../components/dialogs.js';
 import { SettingsPage } from './SettingsPage.js';
+import { PeoplePage } from './PeoplePage.js';
 import { EmptyState, MessageListSkeleton, Spinner } from '../ui/primitives.js';
 import { useToast } from '../ui/ToastProvider.js';
 import { useStoredState } from '../hooks/useStoredState.js';
@@ -24,24 +27,43 @@ export function ChatPage() {
   const { notify } = useToast();
   const socket = useSocket();
 
-  const { rooms, loading: roomsLoading, error: roomsError, createRoom, openDirectMessage } = useRooms(token!);
+  const {
+    rooms,
+    loading: roomsLoading,
+    error: roomsError,
+    createRoom,
+    openDirectMessage,
+  } = useRooms(token!);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [connected, setConnected] = useState(false);
   const [memberPanelOpen, setMemberPanelOpen] = useStoredState('chat-member-panel-open', true);
+  const [view, setView] = useState<'chat' | 'people'>('chat');
+  const [profile, setProfile] = useState<{ userId: string; anchor: DOMRect } | null>(null);
 
   const { messages, sendMessage, retryMessage, loadOlder, firstItemIndex, loading: messagesLoading } = useMessages(
     activeRoomId,
     user!.id,
     token!,
   );
-  const { members, nameFor } = useMembers(token!, activeRoomId);
+  const { members, nameFor, avatarFor } = useMembers(token!, activeRoomId);
   const { upload, uploading, error: uploadError } = useUpload(token!, activeRoomId);
   const online = usePresence();
+  const { typists, notifyTyping, stopTyping } = useTyping(activeRoomId);
 
-  const activeRoom = rooms.find((r) => r.id === activeRoomId) ?? null;
+  const activeRoom = view === 'chat' ? (rooms.find((r) => r.id === activeRoomId) ?? null) : null;
+
+  async function openConversation(userId: string) {
+    try {
+      const room = await openDirectMessage(userId);
+      setActiveRoomId(room.id);
+      setView('chat');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Could not start conversation');
+    }
+  }
 
   // Auto-select the first conversation so the app never opens on a blank pane.
   useEffect(() => {
@@ -92,10 +114,19 @@ export function ChatPage() {
         <Sidebar
           rooms={rooms}
           loading={roomsLoading}
-          activeRoomId={activeRoomId}
-          onSelect={setActiveRoomId}
+          activeRoomId={view === 'chat' ? activeRoomId : null}
+          onSelect={(id) => {
+            setActiveRoomId(id);
+            setView('chat');
+          }}
           onNewRoom={() => setDialog('newRoom')}
           onNewDm={() => setDialog('newDm')}
+          onFindPeople={() => {
+            setView('people');
+            setSidebarOpen(false);
+          }}
+          peopleActive={view === 'people'}
+          avatarKey={user!.avatarKey}
           onOpenSettings={() => setDialog('settings')}
           onLogout={logout}
           username={user!.username}
@@ -106,7 +137,15 @@ export function ChatPage() {
 
       <div className="flex min-w-0 flex-1">
         <main className="flex min-w-0 flex-1 flex-col">
-          {roomsLoading ? (
+          {view === 'people' ? (
+            <PeoplePage
+              token={token!}
+              online={online}
+              onMessage={openConversation}
+              onOpenProfile={(userId, anchor) => setProfile({ userId, anchor })}
+              onOpenSidebar={() => setSidebarOpen(true)}
+            />
+          ) : roomsLoading ? (
             <div className="flex flex-1 items-center justify-center text-content-muted">
               <Spinner />
             </div>
@@ -136,6 +175,8 @@ export function ChatPage() {
                   messages={messages}
                   currentUserId={user!.id}
                   nameFor={nameFor}
+                  avatarFor={avatarFor}
+                  onOpenProfile={(userId, anchor) => setProfile({ userId, anchor })}
                   firstItemIndex={firstItemIndex}
                   loadOlder={loadOlder}
                   onRetry={retryMessage}
@@ -146,6 +187,9 @@ export function ChatPage() {
               <Composer
                 onSend={sendMessage}
                 onAttach={upload}
+                onTyping={notifyTyping}
+                onStopTyping={stopTyping}
+                typingLabel={typingLabel(typists.map((t) => t.username))}
                 uploading={uploading}
                 placeholder={`Message ${activeRoom.isDirect ? '' : '#'}${roomTitle(activeRoom)}`}
               />
@@ -153,9 +197,14 @@ export function ChatPage() {
           )}
         </main>
 
-        {activeRoom && !activeRoom.isDirect && memberPanelOpen && (
+        {view === 'chat' && activeRoom && !activeRoom.isDirect && memberPanelOpen && (
           <div className="hidden xl:block">
-            <MemberPanel members={members} online={online} currentUserId={user!.id} />
+            <MemberPanel
+              members={members}
+              online={online}
+              currentUserId={user!.id}
+              onOpenProfile={(userId, anchor) => setProfile({ userId, anchor })}
+            />
           </div>
         )}
       </div>
@@ -180,14 +229,7 @@ export function ChatPage() {
         <NewDmDialog
           token={token!}
           onClose={() => setDialog(null)}
-          onStart={async (userId) => {
-            try {
-              const room = await openDirectMessage(userId);
-              setActiveRoomId(room.id);
-            } catch (err) {
-              notify(err instanceof Error ? err.message : 'Could not start conversation');
-            }
-          }}
+          onStart={openConversation}
         />
       )}
 
@@ -201,6 +243,18 @@ export function ChatPage() {
       )}
 
       {dialog === 'settings' && <SettingsPage onClose={() => setDialog(null)} />}
+
+      {profile && (
+        <UserCard
+          userId={profile.userId}
+          token={token!}
+          anchor={profile.anchor}
+          currentUserId={user!.id}
+          online={online.has(profile.userId)}
+          onClose={() => setProfile(null)}
+          onMessage={openConversation}
+        />
+      )}
 
       {lightbox && <ImageLightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </div>

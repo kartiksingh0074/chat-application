@@ -25,13 +25,20 @@ roomsRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
   const peers =
     directIds.length > 0
       ? await db
-          .select({ roomId: roomMembers.roomId, id: users.id, username: users.username })
+          .select({
+            roomId: roomMembers.roomId,
+            id: users.id,
+            username: users.username,
+            avatarKey: users.avatarKey,
+          })
           .from(roomMembers)
           .innerJoin(users, eq(roomMembers.userId, users.id))
           .where(and(inArray(roomMembers.roomId, directIds), ne(roomMembers.userId, req.userId!)))
       : [];
 
-  const peerByRoom = new Map(peers.map((p) => [p.roomId, { id: p.id, username: p.username }]));
+  const peerByRoom = new Map(
+    peers.map((p) => [p.roomId, { id: p.id, username: p.username, avatarKey: p.avatarKey }]),
+  );
 
   res.json({
     rooms: memberRooms.map((room) =>
@@ -89,7 +96,12 @@ roomsRouter.get('/:id/members', requireAuth, async (req: AuthedRequest, res) => 
   }
 
   const members = await db
-    .select({ id: users.id, username: users.username, joinedAt: roomMembers.joinedAt })
+    .select({
+      id: users.id,
+      username: users.username,
+      avatarKey: users.avatarKey,
+      joinedAt: roomMembers.joinedAt,
+    })
     .from(roomMembers)
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(eq(roomMembers.roomId, roomId));
@@ -158,7 +170,7 @@ roomsRouter.post('/dm', requireAuth, async (req: AuthedRequest, res) => {
 
   // The caller already knows who they asked for, but returning the peer keeps
   // this response the same shape as GET /rooms so the client has one code path.
-  const peer = { id: other.id, username: other.username };
+  const peer = { id: other.id, username: other.username, avatarKey: other.avatarKey };
 
   if (existing[0]) {
     res.json({ room: { ...existing[0], isDirect: true, peer } });

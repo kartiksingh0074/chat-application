@@ -7,6 +7,7 @@ import { roomMembers } from '../db/schema.js';
 import {
   extensionForType,
   isBlockedAttachmentType,
+  isImageContentType,
   sanitizeFilename,
 } from '@chat-application/shared';
 import { requireAuth, type AuthedRequest } from '../auth/middleware.js';
@@ -63,6 +64,38 @@ uploadsRouter.post('/presign', requireAuth, async (req: AuthedRequest, res) => {
     // Express 4 doesn't catch async handler rejections - without this the
     // whole process would go down on a storage hiccup.
     logger.error({ err, roomId }, 'failed to presign upload URL');
+    res.status(500).json({ code: 'presign_failed', message: 'Could not prepare the upload' });
+  }
+});
+
+const avatarPresignSchema = z.object({
+  contentType: z.string().min(1).max(255),
+});
+
+/**
+ * Avatars are keyed by owner - `avatars/<user id>/<ulid>.<ext>` - so
+ * PATCH /users/me can verify from the key alone that an uploaded object
+ * belongs to the caller, without a second round-trip to storage.
+ */
+uploadsRouter.post('/avatar-presign', requireAuth, async (req: AuthedRequest, res) => {
+  const parsed = avatarPresignSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ code: 'invalid_payload', message: parsed.error.message });
+    return;
+  }
+  const { contentType } = parsed.data;
+
+  if (!isImageContentType(contentType)) {
+    res.status(415).json({ code: 'unsupported_type', message: 'An avatar has to be an image' });
+    return;
+  }
+
+  const key = `avatars/${req.userId!}/${ulid()}${extensionForType(contentType)}`;
+  try {
+    const url = await minioClient.presignedPutObject(env.MINIO_BUCKET, key, PRESIGN_EXPIRY_SECONDS);
+    res.json({ url, key });
+  } catch (err) {
+    logger.error({ err, userId: req.userId }, 'failed to presign avatar URL');
     res.status(500).json({ code: 'presign_failed', message: 'Could not prepare the upload' });
   }
 });

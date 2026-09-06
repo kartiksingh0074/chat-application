@@ -1,5 +1,5 @@
 import type { Member } from '../hooks/useMembers.js';
-import { roomTitle, type Room } from '../hooks/useRooms.js';
+import { roomAvatarKey, roomTitle, type Room } from '../hooks/useRooms.js';
 import { Avatar, Button } from '../ui/primitives.js';
 
 interface RoomHeaderProps {
@@ -38,7 +38,7 @@ export function RoomHeader({
       </Button>
 
       {room.isDirect ? (
-        <Avatar name={title} size={36} />
+        <Avatar name={title} size={36} avatarKey={roomAvatarKey(room)} />
       ) : (
         <span className="flex size-9 items-center justify-center rounded-lg bg-surface-sunken text-sm">#</span>
       )}

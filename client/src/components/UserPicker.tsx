@@ -55,7 +55,7 @@ export function UserPicker({ token, selected, onToggle, multiple = true }: UserP
                     className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition
                       ${isSelected ? 'bg-brand-subtle text-brand' : 'text-content hover:bg-surface-sunken'}`}
                   >
-                    <Avatar name={u.username} size={28} />
+                    <Avatar name={u.username} size={28} avatarKey={u.avatarKey} />
                     <span className="flex-1 truncate">{u.username}</span>
                     {isSelected && <span aria-hidden>✓</span>}
                   </button>

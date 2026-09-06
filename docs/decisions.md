@@ -169,3 +169,41 @@ does not animate message entry either.
 delete need the `edited_at` / `deleted_at` migration that is deferred; and jump-to-message needs
 the Stage D `around` query. That leaves copy. Building the toolbar now anyway is still worth it -
 the positioning and hover/focus handling are the fiddly part, and Stage D only has to add a button.
+
+
+## UI Stage C
+
+**Typing membership is checked against `socket.rooms`, not Postgres.** Typing fires orders of
+magnitude more often than sending, so a `room_members` lookup per keystroke would put the hot path
+back on the database - exactly what section 3 forbids. `room:join` already verifies membership
+before joining, and a socket is only ever in rooms it joined, so the room set is an authoritative
+membership check that costs nothing. Typing also gets its own rate-limit budget rather than eating
+the message allowance.
+
+**Typing indicators expire on a timer instead of trusting `typing:stop`.** A closed tab, a lost
+connection or a dropped packet never sends the stop event. The client re-announces every 2.5 s and
+entries expire after 6 s, so a missed stop clears itself. A permanently stuck "alice is typing" is
+worse than one that lingers a few seconds.
+
+**Avatars are keyed by owner: `avatars/<user id>/<ulid>.<ext>`.** That prefix is what lets
+`PATCH /users/me` verify from the key alone that the object belongs to the caller, with no extra
+round-trip to storage. Without it a user could point their avatar at someone else's upload, or at a
+room attachment from a room they have since been removed from. Verified: both are rejected with 400.
+
+**The typing broadcast needed no new Redis code.** `socket.to(room).emit()` already goes through
+the `@socket.io/redis-adapter` installed in Phase 5, so a typist on node-1 reaches a reader on
+node-2 for free. Adding a separate Redis key for "who is typing" would only matter for showing
+indicators to someone who joins mid-typing, which is not worth a round-trip per keystroke.
+
+**nginx caches upstream IPs at startup - recreating app containers alone silently breaks load
+balancing.** Found while verifying that typing crosses instances: all eight test connections landed
+on node-1. `docker compose up -d --build node-1 node-2` gives the containers new IPs, but nginx had
+resolved `node-1:4000` / `node-2:4000` once at config load and kept the old addresses. Connections
+to the stale IP were refused, nginx retried the surviving peer, and every request quietly served
+from a single instance - capacity halved with no visible error. `server ... resolve` is NGINX Plus
+only, so the fix for open-source nginx is to recreate it whenever the app containers are recreated:
+
+    docker compose up -d --build node-1 node-2 && docker compose up -d --force-recreate nginx
+
+Worth remembering before any future benchmark run: a Phase 7 measurement taken in this state would
+have reported single-node numbers while appearing to test two.

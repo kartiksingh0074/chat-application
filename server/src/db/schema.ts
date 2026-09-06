@@ -4,6 +4,7 @@ export const users = pgTable('users', {
   id: text('id').primaryKey(), // ULID
   username: text('username').notNull().unique(),
   passwordHash: text('password_hash').notNull(), // argon2
+  avatarKey: text('avatar_key'), // MinIO object key, nullable - initials are the fallback
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

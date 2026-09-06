@@ -116,7 +116,7 @@ export function MembersDialog({
         {members.map((m) => (
           <li key={m.id} className="flex items-center gap-2.5 rounded-lg px-1 py-2">
             <div className="relative">
-              <Avatar name={m.username} size={32} />
+              <Avatar name={m.username} size={32} avatarKey={m.avatarKey} />
               {online.has(m.id) && (
                 <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-surface bg-success" />
               )}

@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config.js';
 export interface RoomPeer {
   id: string;
   username: string;
+  avatarKey?: string | null;
 }
 
 export interface Room {
@@ -24,6 +25,11 @@ export interface Room {
  */
 export function roomTitle(room: Room): string {
   return room.isDirect ? (room.peer?.username ?? room.name) : room.name;
+}
+
+/** The picture to show beside a conversation, if the peer has uploaded one. */
+export function roomAvatarKey(room: Room): string | null {
+  return room.isDirect ? (room.peer?.avatarKey ?? null) : null;
 }
 
 export function useRooms(token: string) {

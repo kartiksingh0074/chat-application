@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../config.js';
 export interface AuthUser {
   id: string;
   username: string;
+  avatarKey?: string | null;
 }
 
 interface AuthState {
@@ -17,6 +18,8 @@ interface AuthContextValue {
   ready: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, password: string) => Promise<void>;
+  /** Merge fields into the cached user, e.g. after an avatar upload. */
+  updateUser: (patch: Partial<AuthUser>) => void;
   logout: () => void;
 }
 
@@ -79,6 +82,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => persist(null), [persist]);
 
+  const updateUser = useCallback(
+    (patch: Partial<AuthUser>) => {
+      const current = stateRef.current;
+      if (!current) return;
+      persist({ ...current, user: { ...current.user, ...patch } });
+    },
+    [persist],
+  );
+
   const login = useCallback(
     async (username: string, password: string) => {
       const body = await postJson<{ token: string; user: AuthUser }>('/auth/login', { username, password });
@@ -113,8 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state?.token, persist]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user: state?.user ?? null, token: state?.token ?? null, ready, login, register, logout }),
-    [state, ready, login, register, logout],
+    () => ({
+      user: state?.user ?? null,
+      token: state?.token ?? null,
+      ready,
+      login,
+      register,
+      updateUser,
+      logout,
+    }),
+    [state, ready, login, register, updateUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

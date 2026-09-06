@@ -10,6 +10,8 @@ interface MessageListProps {
   messages: DisplayMessage[];
   currentUserId: string;
   nameFor: (userId: string) => string;
+  avatarFor: (userId: string) => string | null;
+  onOpenProfile: (userId: string, anchor: DOMRect) => void;
   firstItemIndex: number;
   loadOlder: () => void;
   onRetry: (tempId: string) => void;
@@ -35,6 +37,8 @@ export function MessageList({
   messages,
   currentUserId,
   nameFor,
+  avatarFor,
+  onOpenProfile,
   firstItemIndex,
   loadOlder,
   onRetry,
@@ -115,13 +119,32 @@ export function MessageList({
                   ${grouped ? 'py-0.5' : 'pb-0.5 pt-2'}`}
               >
                 <div className="w-9 shrink-0">
-                  {!grouped && <Avatar name={name === 'You' ? 'me' : name} size={36} />}
+                  {!grouped && (
+                    <button
+                      onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
+                      aria-label={`View ${name === 'You' ? 'your' : `${name}'s`} profile`}
+                      className="rounded-full transition hover:opacity-80 focus-visible:outline-2
+                        focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                      <Avatar
+                        name={name === 'You' ? 'me' : name}
+                        size={36}
+                        avatarKey={avatarFor(m.senderId)}
+                      />
+                    </button>
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   {!grouped && (
                     <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-semibold text-content">{name}</span>
+                      <button
+                        onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
+                        className="text-sm font-semibold text-content hover:underline
+                          focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+                      >
+                        {name}
+                      </button>
                       <time
                         dateTime={m.createdAt}
                         className="text-xs text-content-muted"

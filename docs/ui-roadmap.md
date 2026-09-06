@@ -102,20 +102,28 @@ The five questions from the previous draft, answered. All reversible.
 
 **Exit met.** 45 tests pass, `tsc` clean, CSS 21.65 → 24.41 kB.
 
-### Stage C — People and presence
+### Stage C — People and presence ✅ Done
 
-- [ ] **Global user search surface** — `GET /users?q=` already exists (`server/src/users/routes.ts`,
-  `ilike` match, excludes the caller) and is used inside dialogs. This promotes it to a first-class
-  panel: search, preview, start a DM from the result. Mostly UI. **M**
-- [ ] **User popout card** — click an avatar for name, join date, "Message" button. Reuses the search
-  result row. **M**
-- [ ] **Avatar upload** — `avatar_key` on `users`; reuses the Phase 6 MinIO presign pipeline
-  end-to-end. Generated initials stay as fallback. Migration is one column. **M**
-- [ ] **Typing indicators** — `typing:start` / `typing:stop`, Redis-backed so it crosses
-  node-1/node-2. Worth doing *because* it exercises the Redis adapter across instances, which is the
-  project's whole point — the one "feel" feature that is also architecturally on-topic. **M**
+- [x] **Global user search surface** — a "Find people" view in the sidebar: search every account,
+  open a profile, start a DM from the result. The endpoint already existed; this gives it a place
+  to live. **M**
+- [x] **User popout card** — click any avatar or username in the message list, member panel or
+  people view. Shows picture, presence, join date and a Message button, anchored to what you
+  clicked and flipped when it would run off-screen. **M**
+- [x] **Avatar upload** — `avatar_key` on `users` (migration `0001_goofy_cyclops`), reusing the
+  Phase 6 presign pipeline. Keys are namespaced `avatars/<user id>/`, so `PATCH /users/me` can
+  prove ownership from the key alone. Initials remain the fallback, including when an image 404s. **M**
+- [x] **Typing indicators** — `typing:start` / `typing:stop`, relayed by the Phase 5 Redis adapter.
+  Membership is checked against `socket.rooms` rather than Postgres, so a keystroke never touches
+  the database. Indicators expire on a 6 s timer so a dropped stop event cannot wedge them. **M**
 
-**Exit:** you can find any user in the DB and start talking to them without knowing their exact name.
+**Exit met.** Verified against the running stack: alice and bob landed on *different* node
+instances and the typing event still crossed, with no self-echo and no leak to a non-member socket.
+49 tests pass.
+
+**Found while verifying:** nginx had been serving every connection from one node. See
+`docs/decisions.md` — it caches upstream IPs at startup, so rebuilding the app containers without
+recreating nginx silently halves the cluster.
 
 ### Stage D — Phase 8 prerequisites. Not optional; §8.6 requires them.
 

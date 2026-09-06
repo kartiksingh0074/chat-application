@@ -11,6 +11,7 @@ export interface ServerToClientEvents {
   'message:new': (m: Message) => void;
   'message:ack': (p: { tempId: string; id: string; createdAt: string }) => void;
   'presence:update': (p: { userId: string; online: boolean }) => void;
+  'typing:update': (p: { roomId: string; userId: string; username: string; typing: boolean }) => void;
   'error': (p: { code: string; message: string }) => void;
 }
 
@@ -18,6 +19,8 @@ export interface ClientToServerEvents {
   'message:send': (p: { roomId: string; tempId: string; body?: string; attachmentKey?: string }) => void;
   'room:join': (p: { roomId: string }) => void;
   'room:leave': (p: { roomId: string }) => void;
+  'typing:start': (p: { roomId: string }) => void;
+  'typing:stop': (p: { roomId: string }) => void;
 }
 
 /**
@@ -25,3 +28,13 @@ export interface ClientToServerEvents {
  * and the socket handler's validation cannot drift apart.
  */
 export const MAX_MESSAGE_LENGTH = 4000;
+
+/**
+ * How long a typing indicator survives without a refresh. The client
+ * re-emits well inside this, so a dropped 'typing:stop' - a closed tab, a
+ * lost connection - expires on its own rather than sticking forever.
+ */
+export const TYPING_TIMEOUT_MS = 6000;
+
+/** How often a client may re-announce that it is still typing. */
+export const TYPING_REFRESH_MS = 2500;
