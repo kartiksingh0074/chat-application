@@ -1,149 +1,170 @@
-# UI Roadmap — features to finalize before building
+# UI plan — sequenced, with a cutoff before Phase 8
 
-Working document. Tick what you want, strike what you don't, add anything missing. Nothing
-here is built yet unless marked ✅ Done. Effort is rough: **S** = under an hour, **M** = a few
-hours, **L** = a session or more.
+Supersedes the menu-style draft of this file (see `git show 72e8447` for that version).
+Nothing below is built unless marked ✅. Effort: **S** = under an hour, **M** = a few hours,
+**L** = a session or more.
 
-Scope note: PROJECT.md §1 calls this "a scalability study, not a feature-complete messenger"
-and §10 says ask before adding dependencies. Everything below is a deliberate departure from
-that framing for demo/portfolio value — worth being intentional about how far we take it.
-
----
-
-## 1. Confirmed requests (from you, this round)
-
-- [ ] **Fix DM naming** — **S**, but it's a real design flaw, not just cosmetic.
-  The server stores a DM's `name` as `"alice & bob"`, which is wrong for *both* participants:
-  alice should see **bob**, and bob should see **alice**. Fix client-side — for `isDirect`
-  rooms, derive the title from the other member rather than using the stored name — so one
-  stored row renders correctly for everyone. (Storing a per-viewer name would need a row per
-  viewer; deriving is strictly better.)
-- [ ] **Global user search / discovery** — **M**. `GET /users?q=` already exists and is used
-  inside dialogs. This makes it a first-class surface: search everyone in the DB, see a profile
-  preview, start a DM from the result. Possibly a dedicated "Find people" panel.
-- [ ] **Discord-style UI direction** — **L**. Broken down in §4 below.
-- [ ] **Quick wins bundle** — §2 below.
+Framing: PROJECT.md §1 calls this "a scalability study, not a feature-complete messenger", and
+§8.8 says the RAG evaluation "is the graded part". Phase 8 is still entirely unbuilt and is what
+the resume describes. So this plan deliberately stops short of a full Discord clone — §4 lists
+what got deferred and why.
 
 ---
 
-## 2. Quick wins (no database migration)
+## 0. Corrections to the previous draft
 
-- [ ] **Clickable links in messages** — **S**. Currently a pasted URL renders as dead plain
-  text. Autolink URLs, `target="_blank"` + `rel="noopener noreferrer"`.
-- [ ] **Typing indicators** — **M**. New `typing:start` / `typing:stop` socket events, Redis-
-  backed so it works across node-1/node-2. Renders as "alice is typing…" above the composer.
-- [ ] **Scroll-to-bottom button** — **S**. With an "N new messages" badge when scrolled up.
-  Needs care with `react-virtuoso`'s `atBottomStateChange`.
-- [ ] **Drag & drop + paste to upload** — **S**. Today you must click 📎. Paste-an-image is the
-  one people miss most.
-- [ ] **Non-image attachments** — **S**. The picker is hardcoded to `accept="image/*"`. Allow
-  PDFs/docs and render a file card instead of an `<img>` when the type isn't an image.
-- [ ] **Leave / rename / delete room** — **M**. You can create rooms but never get rid of one.
-  Needs `DELETE /rooms/:id`, `PATCH /rooms/:id`, `DELETE /rooms/:id/members/:userId`.
-- [ ] **Add & remove members** — **M**. The member list is read-only today.
-- [ ] **Ctrl+K quick switcher** — **M**. Fuzzy jump between rooms and DMs.
-- [ ] **Message length counter** — **S**. Server rejects over 4000 chars; the UI gives no warning.
-- [ ] **Loading skeletons** — **S**. Replace bare spinners in the sidebar and message list.
-- [ ] **Error boundary** — **S**. A render error currently blanks the entire app.
+Two things the earlier draft got wrong, found by reading the code rather than the doc.
 
----
+**The DM naming fix is not client-side.** The draft said to "derive the title from the other
+member" in the client. That works for the *header* but not the *sidebar*: `GET /rooms`
+(`server/src/rooms/routes.ts:12`) returns only `{id, name, isDirect}`, and `useMembers`
+(`client/src/hooks/useMembers.ts`) loads members for the **active room only**. The sidebar lists
+every DM but holds member data for at most one of them, so deriving client-side means an N+1
+`/rooms/:id/members` fetch per DM on every page load. The fix belongs on the server: `GET /rooms`
+returns a `peer` for direct rooms. No migration — one extra join.
 
-## 3. Needs a database migration
+The same bug hits the avatar: `Sidebar.tsx:51` does `<Avatar name={room.name} />`, so a DM avatar
+shows initials derived from `"alice & bob"` — an "A" for both participants.
 
-- [ ] **Avatar upload + profile page** — **M**. Add `avatar_key` to `users`; reuses the MinIO
-  presign pipeline built in Phase 6. Biggest single visual upgrade. Replaces the generated
-  initials avatars (which stay as the fallback).
-- [ ] **Unread badges + "new messages" divider** — **L**. Needs a `room_reads` table
-  (`room_id`, `user_id`, `last_read_message_id`). Bold room names, count badges, and the red
-  unread line Discord shows.
-- [ ] **Edit / delete messages** — **M**. Needs `edited_at` and `deleted_at` on `messages`.
-  Deletion should be soft, so history and RAG citations don't break.
-- [ ] **Room topic / description** — **S**. `description` column on `rooms`, shown in the header.
-- [ ] **Custom display name** — **S**. `display_name` on `users`, separate from the login
-  username.
+**Jump-to-message needs a new query mode, not just client plumbing.**
+`buildMessagesPageQuery` (`server/src/rooms/messagesQuery.ts`) only supports `before`
+(`id < cursor`, descending). A citation chip needs the page *surrounding* an arbitrary message —
+rows both newer and older than the target. That is a second query shape, not a parameter tweak.
+Detail in Stage D.
 
 ---
 
-## 4. Discord-style visual direction
+## 1. Open questions — decided
 
-This is the "make it feel live" item. Listed separately because each piece is optional — pick
-the ones you actually want.
+The five questions from the previous draft, answered. All reversible.
 
-**Layout**
-- [ ] **Right-hand member list panel** — **M**. Online members grouped above offline, always
-  visible on wide screens. Very recognisably Discord.
-- [ ] **Collapsible sidebar sections** — **S**. Rooms / Direct Messages as collapsible groups.
-- [ ] **Server rail (far-left icon column)** — **S–M**. Visually iconic, but we only have one
-  "server", so it may be decoration. Worth deciding deliberately.
-
-**Message area**
-- [ ] **Hover toolbar on messages** — **M**. Appears on hover at the message's top-right.
-  Note: react/reply/thread are all out of scope per §1, so realistically this holds
-  copy / edit / delete / jump-link only.
-- [ ] **User popout card** — **M**. Click an avatar → small card with name, join date, and a
-  "Message" button.
-- [ ] **Compact vs cozy density toggle** — **S**. A settings preference.
-- [ ] **Markdown-ish formatting** — **M**. `**bold**`, `*italic*`, `` `code` ``, and fenced
-  code blocks. Needs careful escaping — do *not* render raw HTML.
-- [ ] **@mention highlighting** — **M**. Parse `@username`, highlight it, and tint the whole
-  message when you're mentioned.
-- [ ] **Emoji picker** — **M**. Likely a new dependency — needs approval per §10.
-
-**Feel**
-- [ ] **Dark-first palette retune** — **S**. Shift the default toward Discord's darker greys;
-  tokens already exist in `index.css`, so this is mostly value changes.
-- [ ] **Richer presence states** — **M**. online / idle / do-not-disturb / offline instead of
-  the current binary. Idle needs client-side inactivity detection.
-- [ ] **Notification sound + in-tab browser notification** — **S**. (True Web Push is §9
-  stretch territory — different thing.)
-- [ ] **Micro-animations** — **S**. Message enter, hover transitions, dialog fade.
+1. **Server rail — skip.** There is exactly one "server", so the far-left icon column would be
+   decoration that costs horizontal space on a laptop screen. Collapsible sidebar sections give
+   most of the same visual rhythm for less.
+2. **Emoji picker — skip.** It is the one item needing a new dependency (§10 requires asking),
+   the good libraries are large, and the OS picker already works in the composer. Revisit only if
+   it turns out to matter.
+3. **Density toggle — pick one default (cozy).** Building both doubles the CSS surface on every
+   message row for a preference that does not show up in a demo.
+4. **Ordering — correctness first, then the look.** The DM naming bug is visible in every
+   screenshot of the DM list, and dead links read as broken. Fixing those is cheap and raises the
+   floor before styling lands on top.
+5. **Cutoff — Stages A–D below, then Phase 8.** Everything in §4 is deferred.
 
 ---
 
-## 5. Prerequisites for Phase 8 (RAG bot)
+## 2. What ships (Stages A–D)
 
-These aren't optional if we build Phase 8 — §8.6 explicitly requires them:
+### Stage A — Correctness. These are bugs, not features.
 
-- [ ] **Jump-to-message** — **M**. Citation chips must scroll the virtuoso list to the cited
-  message. That plumbing doesn't exist and is non-trivial: the target may not be loaded, so it
-  needs "fetch the page containing message X" support on the cursor endpoint.
-- [ ] **Bot message styling** — **S**. Bot answers need to look distinct, with citation chips.
-- [ ] **Streaming token rendering** — **M**. `bot:token` events append progressively.
+- [ ] **DM naming, server side** — add `peer: {id, username}` to `GET /rooms` for `isDirect` rooms,
+  and to the `POST /rooms/dm` response (both the created and the get-or-create branch, which today
+  returns the stored name at `rooms/routes.ts:135`). Leave the stored `name` column alone; it stops
+  being used for display. **S–M**
+- [ ] **DM naming, client side** — `Room` type grows `peer?`. `Sidebar.tsx:51,57`, `RoomHeader`, and
+  the composer placeholder (`ChatPage.tsx:142`) render `room.peer?.username ?? room.name`. Fixes the
+  wrong avatar initials in the same change. **S**
+- [ ] **Error boundary** — there is no `componentDidCatch` anywhere in `client/src`; a single render
+  error blanks the whole app. **S**
+- [ ] **Clickable links** — a pasted URL is dead plain text today. Autolink, with
+  `rel="noopener noreferrer"`. Escape first; never render raw HTML. **S**
+- [ ] **Message length counter** — the server rejects over 4000 chars (`socket/handlers.ts:22`); the
+  UI gives no warning, so a long paste fails silently. **S**
+- [ ] **Non-image attachments** — `Composer.tsx:62` hardcodes `accept="image/*"`. Allow other types
+  and render a file card when the MIME type is not an image. **S**
+- [ ] **Drag & drop + paste to upload** — paste-an-image is the most-missed interaction. **S**
+
+**Exit:** a DM shows the other person's name and avatar for both participants; no interaction
+silently fails.
+
+### Stage B — The Discord shell. Cheap, high visual return.
+
+- [ ] **Dark-first palette retune** — tokens already exist in `client/src/index.css`; mostly oklch
+  value changes. **S**
+- [ ] **Right-hand member list panel** — online grouped above offline, wide screens only. The most
+  recognisable single element. **M**
+- [ ] **Collapsible sidebar sections** — Rooms / Direct Messages as groups. **S**
+- [ ] **Scroll-to-bottom button + "N new messages" badge** — needs care with `react-virtuoso`'s
+  `atBottomStateChange`. **S–M**
+- [ ] **Hover toolbar (reduced)** — copy and jump-link only. Edit/delete need a migration and are
+  deferred; react/reply/thread are banned by §1. Worth knowing this ends up thinner than Discord's. **M**
+- [ ] **Loading skeletons + micro-animations** — replaces bare spinners; message enter, dialog fade. **S**
+
+**Exit:** a screenshot reads as a real chat app at a glance.
+
+### Stage C — People and presence
+
+- [ ] **Global user search surface** — `GET /users?q=` already exists (`server/src/users/routes.ts`,
+  `ilike` match, excludes the caller) and is used inside dialogs. This promotes it to a first-class
+  panel: search, preview, start a DM from the result. Mostly UI. **M**
+- [ ] **User popout card** — click an avatar for name, join date, "Message" button. Reuses the search
+  result row. **M**
+- [ ] **Avatar upload** — `avatar_key` on `users`; reuses the Phase 6 MinIO presign pipeline
+  end-to-end. Generated initials stay as fallback. Migration is one column. **M**
+- [ ] **Typing indicators** — `typing:start` / `typing:stop`, Redis-backed so it crosses
+  node-1/node-2. Worth doing *because* it exercises the Redis adapter across instances, which is the
+  project's whole point — the one "feel" feature that is also architecturally on-topic. **M**
+
+**Exit:** you can find any user in the DB and start talking to them without knowing their exact name.
+
+### Stage D — Phase 8 prerequisites. Not optional; §8.6 requires them.
+
+- [ ] **`around` pagination mode** — extend `buildMessagesPageQuery` with a third shape: `limit/2`
+  rows `id >= target` ascending, `limit/2` rows `id < target` descending, merged. Same
+  `idx_messages_room_id_desc` index, still no OFFSET. **M**
+- [ ] **Jump-to-message** — citation chip scrolls the virtuoso list to the cited message, fetching the
+  surrounding page first when it is not loaded, then briefly highlighting it. **M**
+- [ ] **Bot message styling** — distinct treatment plus citation chips. **S**
+- [ ] **Streaming token rendering** — `bot:token` appends progressively without re-rendering the list. **M**
+
+**Exit:** verifiable only once Phase 8 exists, so Stage D lands immediately before it and is
+validated by §8.7 criterion 4.
 
 ---
 
-## 6. Explicitly out of scope (PROJECT.md §1)
+## 3. Then Phase 8
 
-Listed so nobody re-proposes them later:
+Unchanged from PROJECT.md §8. The parts most likely to bite, flagged now:
 
-- ❌ Reactions
-- ❌ Threads
-- ❌ Read receipts beyond delivered/sent
-- ❌ Voice / video
-- ❌ End-to-end encryption
+- **§8.5 security is testable and graded** — the `room_id` filter goes in the SQL `WHERE`, and
+  membership is checked *before* the query. Filtering after a top-k vector search leaks the existence
+  of content in rooms the user cannot see. §8.7 criterion 2 requires an automated test for exactly this.
+- **§8.4** — the socket path never calls an embedding API. Embedding goes through a new BullMQ queue
+  alongside the Phase 4 persist worker.
+- **§8.8 is the graded deliverable** — 30 labelled questions, three retrieval modes, recall@10 / MRR /
+  p95 into `docs/benchmarks.md`. This is what the resume claims and what is worth protecting time for.
 
 ---
 
-## 7. Already done
+## 4. Deferred — not deleted
 
-- ✅ Signup / signin pages, logout, session persistence, token auto-refresh
-- ✅ Real usernames (was showing raw ULIDs)
-- ✅ Presence dots (server had broadcast these since Phase 5; client now listens)
-- ✅ Create rooms, direct messages (get-or-create), user picker
-- ✅ Message timestamps, day separators, sender grouping
-- ✅ Retry failed sends
+Cut to protect Phase 8. Each is genuinely useful; none is on the critical path to a working demo.
+
+| Item | Effort | Why it waits |
+|---|---|---|
+| Unread badges + new-message divider | **L** | Needs a `room_reads` table and read-tracking on every view; largest item on the list |
+| Edit / delete messages | **M** | Needs `edited_at` / `deleted_at`; soft-delete so RAG citations do not break |
+| Markdown formatting | **M** | Escaping has to be exactly right; a bad regex here is an XSS hole |
+| @mention highlighting | **M** | Wants the mention stored, not just parsed, to be useful |
+| Ctrl+K quick switcher | **M** | Genuinely nice; pure convenience |
+| Room CRUD, add/remove members | **M** | You can create rooms but not leave, rename, or delete one |
+| Richer presence (idle/DND) | **M** | Binary online/offline is honest; idle needs inactivity detection |
+| Room topic, custom display name | **S** | Two more migrations for small return |
+| Notification sound | **S** | Easy to add late |
+| Emoji picker, density toggle, server rail | — | Decided against in §1 |
+
+---
+
+## 5. Out of scope — PROJECT.md §1
+
+Reactions · Threads · Read receipts beyond delivered/sent · Voice / video · End-to-end encryption
+
+---
+
+## 6. Already done
+
+- ✅ Signup / signin, logout, session persistence, token auto-refresh
+- ✅ Real usernames, presence dots, create rooms, DMs (get-or-create), user picker
+- ✅ Message timestamps, day separators, sender grouping, retry failed sends
 - ✅ Settings dialog with light / dark / system themes
 - ✅ Toasts, image lightbox, mobile drawer, Enter-to-send
-
----
-
-## 8. Open questions to settle before building
-
-1. **Server rail** — include the far-left icon column even though there's only one server, or
-   skip it as pure decoration?
-2. **Emoji picker** — worth a new dependency, or skip?
-3. **Density toggle** — build both compact and cozy, or just pick one good default?
-4. **Ordering** — quick wins first, or the Discord look first? (The look is more visible in a
-   demo; the quick wins fix things that are actually broken, like dead links.)
-5. **Where does this stop?** Phase 8 is still unbuilt and is the graded centrepiece. Worth
-   agreeing a cutoff here so UI work doesn't consume its time.
