@@ -19,3 +19,9 @@ export interface ClientToServerEvents {
   'room:join': (p: { roomId: string }) => void;
   'room:leave': (p: { roomId: string }) => void;
 }
+
+/**
+ * Longest message body the server accepts. Shared so the composer's counter
+ * and the socket handler's validation cannot drift apart.
+ */
+export const MAX_MESSAGE_LENGTH = 4000;

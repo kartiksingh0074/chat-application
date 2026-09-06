@@ -5,6 +5,7 @@ import { ToastProvider } from './ui/ToastProvider.js';
 import { AuthPage } from './pages/AuthPage.js';
 import { ChatPage } from './pages/ChatPage.js';
 import { Spinner } from './ui/primitives.js';
+import { ErrorBoundary } from './ui/ErrorBoundary.js';
 
 function Routes() {
   const { user, token, ready } = useAuth();
@@ -30,12 +31,14 @@ function Routes() {
 
 export function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <Routes />
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <Routes />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

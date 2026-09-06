@@ -1,7 +1,8 @@
 import { Virtuoso } from 'react-virtuoso';
 import type { DisplayMessage } from '../hooks/useMessages.js';
-import { attachmentUrl } from '../config.js';
 import { Avatar } from '../ui/primitives.js';
+import { Linkified } from '../ui/linkify.js';
+import { Attachment } from './Attachment.js';
 
 interface MessageListProps {
   messages: DisplayMessage[];
@@ -92,23 +93,12 @@ export function MessageList({
                     className={`whitespace-pre-wrap break-words text-sm text-content
                       ${m.status === 'pending' ? 'opacity-50' : ''}`}
                   >
-                    {m.body}
+                    <Linkified text={m.body} />
                   </p>
                 )}
 
                 {m.attachmentKey && (
-                  <button
-                    onClick={() => onOpenImage(attachmentUrl(m.attachmentKey!))}
-                    className="mt-1 block overflow-hidden rounded-card border border-border-subtle
-                      focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                  >
-                    <img
-                      src={attachmentUrl(m.attachmentKey)}
-                      alt="Attachment"
-                      loading="lazy"
-                      className="max-h-72 max-w-xs object-cover"
-                    />
-                  </button>
+                  <Attachment attachmentKey={m.attachmentKey} onOpenImage={onOpenImage} />
                 )}
 
                 {m.status === 'failed' && (

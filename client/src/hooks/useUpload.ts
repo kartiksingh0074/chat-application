@@ -22,9 +22,16 @@ export function useUpload(token: string, roomId: string | null) {
       const presignRes = await fetch(`${API_BASE_URL}/uploads/presign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ roomId, contentType: file.type || 'application/octet-stream' }),
+        body: JSON.stringify({
+          roomId,
+          contentType: file.type || 'application/octet-stream',
+          filename: file.name,
+        }),
       });
-      if (!presignRes.ok) throw new Error(`could not get an upload URL (${presignRes.status})`);
+      if (!presignRes.ok) {
+        const problem = (await presignRes.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(problem?.message ?? `could not get an upload URL (${presignRes.status})`);
+      }
       const { url, key } = (await presignRes.json()) as PresignResponse;
 
       const putRes = await fetch(url, {

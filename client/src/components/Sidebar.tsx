@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Room } from '../hooks/useRooms.js';
+import { roomTitle, type Room } from '../hooks/useRooms.js';
 import { Avatar, Button, EmptyState, Input, Spinner } from '../ui/primitives.js';
 
 interface SidebarProps {
@@ -30,12 +30,14 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const [filter, setFilter] = useState('');
-  const visible = rooms.filter((r) => r.name.toLowerCase().includes(filter.trim().toLowerCase()));
+  const needle = filter.trim().toLowerCase();
+  const visible = rooms.filter((r) => roomTitle(r).toLowerCase().includes(needle));
   const groups = visible.filter((r) => !r.isDirect);
   const direct = visible.filter((r) => r.isDirect);
 
   function renderRoom(room: Room) {
     const active = room.id === activeRoomId;
+    const title = roomTitle(room);
     return (
       <li key={room.id}>
         <button
@@ -48,13 +50,13 @@ export function Sidebar({
             ${active ? 'bg-brand-subtle font-medium text-brand' : 'text-content-muted hover:bg-surface-sunken hover:text-content'}`}
         >
           {room.isDirect ? (
-            <Avatar name={room.name} size={26} />
+            <Avatar name={title} size={26} />
           ) : (
             <span className="flex size-[26px] shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-xs">
               #
             </span>
           )}
-          <span className="truncate">{room.name}</span>
+          <span className="truncate">{title}</span>
         </button>
       </li>
     );

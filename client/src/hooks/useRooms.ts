@@ -1,10 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL } from '../config.js';
 
+export interface RoomPeer {
+  id: string;
+  username: string;
+}
+
 export interface Room {
   id: string;
   name: string;
   isDirect: boolean;
+  /** The other participant, for direct rooms only. Null if they were removed. */
+  peer?: RoomPeer | null;
+}
+
+/**
+ * What to call a conversation on screen.
+ *
+ * A DM's stored `name` is "alice & bob" - the same string for both people, and
+ * wrong for each of them. For direct rooms the server sends the other
+ * participant, and that is the title. Falling back to the stored name keeps
+ * older rooms readable rather than blank.
+ */
+export function roomTitle(room: Room): string {
+  return room.isDirect ? (room.peer?.username ?? room.name) : room.name;
 }
 
 export function useRooms(token: string) {

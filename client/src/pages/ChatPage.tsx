@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
-import { useRooms } from '../hooks/useRooms.js';
+import { roomTitle, useRooms } from '../hooks/useRooms.js';
 import { useMessages } from '../hooks/useMessages.js';
 import { useMembers } from '../hooks/useMembers.js';
 import { useUpload } from '../hooks/useUpload.js';
@@ -139,7 +139,7 @@ export function ChatPage() {
               onSend={sendMessage}
               onAttach={upload}
               uploading={uploading}
-              placeholder={`Message ${activeRoom.isDirect ? '' : '#'}${activeRoom.name}`}
+              placeholder={`Message ${activeRoom.isDirect ? '' : '#'}${roomTitle(activeRoom)}`}
             />
           </>
         )}

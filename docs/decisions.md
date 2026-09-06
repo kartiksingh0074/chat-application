@@ -108,3 +108,35 @@ public is acceptable for this project; writes are not.
 `minio` -> `query-string`. Not reachable in our usage: object keys are server-generated ULIDs and
 no attacker-controlled percent-encoded input reaches that parser. The only npm-offered fix is a
 breaking downgrade to `minio@7.0.26`. Same posture as the esbuild entry above.
+
+## UI Stage A
+
+**A DM's display name is resolved on the server, not the client.** The stored `rooms.name` for a
+direct room is `"alice & bob"` — one string that is wrong for both participants. The obvious fix is
+to derive the title in the client from the other member, but the sidebar lists *every* DM while
+`useMembers` only loads the active room, so that would mean one `/rooms/:id/members` request per
+conversation on every page load. `GET /rooms` now returns a `peer` for direct rooms via a single
+extra query for the whole list, and `roomTitle()` prefers it. The stored name is left in place as a
+stable server-side label for logs and admin queries.
+
+**Attachment type travels in the object key, not a new column.** `messages` has only
+`attachment_key`, so the client had no way to tell a PDF from a PNG. Rather than migrate, the
+presign route appends an extension derived from the *validated content type* — never from the
+client's filename, so `thing.xyz` uploaded as an unknown type becomes `.bin`, not `.xyz`. Keys
+written before this change have no extension and still render as images, which is correct: the
+picker was `accept="image/*"` at the time.
+
+**The filename in the key is cosmetic and sanitised to `[A-Za-z0-9._-]`.** It exists so a file card
+has something readable to show. The ULID still provides uniqueness, so the name carries no
+correctness weight — path separators and URL-significant characters are stripped
+(`../../etc/passwd` becomes `passwd`).
+
+**Presign refuses `text/html`, `image/svg+xml` and XML types.** MinIO serves objects from its own
+origin, so storing those would make the bucket a script-hosting endpoint. This is a real (if small)
+hardening: `accept="image/*"` was only ever a client-side hint and the server accepted anything.
+Widening the picker to all files made it worth closing.
+
+**`@chat-application/shared` now has an `index.ts` barrel.** `events.ts` is the socket contract
+copied verbatim from §5 and shouldn't accumulate unrelated helpers, so attachment conventions live
+in `attachments.ts` and the package entrypoint re-exports both. `MAX_MESSAGE_LENGTH` moved there
+too, so the composer's counter and the socket handler's Zod schema cannot drift.

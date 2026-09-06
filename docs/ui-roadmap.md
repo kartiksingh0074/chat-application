@@ -55,27 +55,27 @@ The five questions from the previous draft, answered. All reversible.
 
 ## 2. What ships (Stages A–D)
 
-### Stage A — Correctness. These are bugs, not features.
+### Stage A — Correctness. These are bugs, not features. ✅ Done
 
-- [ ] **DM naming, server side** — add `peer: {id, username}` to `GET /rooms` for `isDirect` rooms,
+- [x] **DM naming, server side** — add `peer: {id, username}` to `GET /rooms` for `isDirect` rooms,
   and to the `POST /rooms/dm` response (both the created and the get-or-create branch, which today
   returns the stored name at `rooms/routes.ts:135`). Leave the stored `name` column alone; it stops
   being used for display. **S–M**
-- [ ] **DM naming, client side** — `Room` type grows `peer?`. `Sidebar.tsx:51,57`, `RoomHeader`, and
+- [x] **DM naming, client side** — `Room` type grows `peer?`. `Sidebar.tsx:51,57`, `RoomHeader`, and
   the composer placeholder (`ChatPage.tsx:142`) render `room.peer?.username ?? room.name`. Fixes the
   wrong avatar initials in the same change. **S**
-- [ ] **Error boundary** — there is no `componentDidCatch` anywhere in `client/src`; a single render
+- [x] **Error boundary** — there is no `componentDidCatch` anywhere in `client/src`; a single render
   error blanks the whole app. **S**
-- [ ] **Clickable links** — a pasted URL is dead plain text today. Autolink, with
+- [x] **Clickable links** — a pasted URL is dead plain text today. Autolink, with
   `rel="noopener noreferrer"`. Escape first; never render raw HTML. **S**
-- [ ] **Message length counter** — the server rejects over 4000 chars (`socket/handlers.ts:22`); the
+- [x] **Message length counter** — the server rejects over 4000 chars (`socket/handlers.ts:22`); the
   UI gives no warning, so a long paste fails silently. **S**
-- [ ] **Non-image attachments** — `Composer.tsx:62` hardcodes `accept="image/*"`. Allow other types
+- [x] **Non-image attachments** — `Composer.tsx:62` hardcodes `accept="image/*"`. Allow other types
   and render a file card when the MIME type is not an image. **S**
-- [ ] **Drag & drop + paste to upload** — paste-an-image is the most-missed interaction. **S**
+- [x] **Drag & drop + paste to upload** — paste-an-image is the most-missed interaction. **S**
 
-**Exit:** a DM shows the other person's name and avatar for both participants; no interaction
-silently fails.
+**Exit met.** Verified against the running stack: one stored row `"alice & bob"` returns
+`peer: bob` to alice and `peer: alice` to bob. 45 tests pass (was 17).
 
 ### Stage B — The Discord shell. Cheap, high visual return.
 

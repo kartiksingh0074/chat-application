@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { ulid } from 'ulidx';
 import { db } from '../db/client.js';
 import { roomMembers, rooms, users } from '../db/schema.js';
@@ -16,7 +16,28 @@ roomsRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
     .innerJoin(rooms, eq(roomMembers.roomId, rooms.id))
     .where(eq(roomMembers.userId, req.userId!));
 
-  res.json({ rooms: memberRooms });
+  // A DM's stored `name` is "alice & bob", which is wrong for both of them -
+  // each should see the other. Resolving the peer here rather than in the
+  // client is what makes that possible: the sidebar lists every DM, so a
+  // client-side fix would need one /members request per conversation. This is
+  // a single extra query for the whole list.
+  const directIds = memberRooms.filter((r) => r.isDirect).map((r) => r.id);
+  const peers =
+    directIds.length > 0
+      ? await db
+          .select({ roomId: roomMembers.roomId, id: users.id, username: users.username })
+          .from(roomMembers)
+          .innerJoin(users, eq(roomMembers.userId, users.id))
+          .where(and(inArray(roomMembers.roomId, directIds), ne(roomMembers.userId, req.userId!)))
+      : [];
+
+  const peerByRoom = new Map(peers.map((p) => [p.roomId, { id: p.id, username: p.username }]));
+
+  res.json({
+    rooms: memberRooms.map((room) =>
+      room.isDirect ? { ...room, peer: peerByRoom.get(room.id) ?? null } : room,
+    ),
+  });
 });
 
 const messagesQuerySchema = z.object({
@@ -135,12 +156,18 @@ roomsRouter.post('/dm', requireAuth, async (req: AuthedRequest, res) => {
     .where(and(eq(rooms.isDirect, true), eq(roomMembers.userId, otherId), inArray(rooms.id, mine)))
     .limit(1);
 
+  // The caller already knows who they asked for, but returning the peer keeps
+  // this response the same shape as GET /rooms so the client has one code path.
+  const peer = { id: other.id, username: other.username };
+
   if (existing[0]) {
-    res.json({ room: { ...existing[0], isDirect: true } });
+    res.json({ room: { ...existing[0], isDirect: true, peer } });
     return;
   }
 
   const roomId = ulid();
+  // Kept for a stable server-side label (logs, admin queries). Not what either
+  // participant sees - the client renders `peer` for direct rooms.
   const name = `${req.username} & ${other.username}`;
   await db.transaction(async (tx) => {
     await tx.insert(rooms).values({ id: roomId, name, isDirect: true });
@@ -150,5 +177,5 @@ roomsRouter.post('/dm', requireAuth, async (req: AuthedRequest, res) => {
     ]);
   });
 
-  res.status(201).json({ room: { id: roomId, name, isDirect: true } });
+  res.status(201).json({ room: { id: roomId, name, isDirect: true, peer } });
 });

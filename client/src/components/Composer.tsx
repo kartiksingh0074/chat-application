@@ -1,4 +1,13 @@
-import { useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
+import { MAX_MESSAGE_LENGTH } from '@chat-application/shared';
 import { Button, Spinner } from '../ui/primitives.js';
 
 interface ComposerProps {
@@ -9,10 +18,19 @@ interface ComposerProps {
   placeholder?: string;
 }
 
+// Start warning with enough room left to finish a thought, rather than at the
+// moment the send would already have failed.
+const COUNTER_VISIBLE_FROM = MAX_MESSAGE_LENGTH - 400;
+
 export function Composer({ onSend, onAttach, uploading, disabled, placeholder }: ComposerProps) {
   const [draft, setDraft] = useState('');
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const tooLong = draft.length > MAX_MESSAGE_LENGTH;
+  const remaining = MAX_MESSAGE_LENGTH - draft.length;
+  const canSend = draft.trim().length > 0 && !tooLong;
 
   function resize() {
     const el = textareaRef.current;
@@ -22,7 +40,7 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
   }
 
   function submit() {
-    if (draft.trim().length === 0) return;
+    if (!canSend) return;
     onSend(draft, undefined);
     setDraft('');
     requestAnimationFrame(resize);
@@ -41,25 +59,72 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
     }
   }
 
+  /** One path for every way a file arrives: picker, drop, or paste. */
+  async function attachAndSend(file: File) {
+    const key = await onAttach(file);
+    if (!key) return;
+    onSend(draft.trim() || undefined, key);
+    setDraft('');
+    requestAnimationFrame(resize);
+  }
+
   async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const key = await onAttach(file);
-    if (key) onSend(draft.trim() || undefined, key);
-    setDraft('');
+    if (file) await attachAndSend(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
+  async function handleDrop(e: DragEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setDragging(false);
+    if (disabled || uploading) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file) await attachAndSend(file);
+  }
+
+  async function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    if (disabled || uploading) return;
+    // Only intercept when the clipboard actually holds a file. A normal text
+    // paste has no items of kind 'file' and must fall through untouched.
+    const item = Array.from(e.clipboardData.items).find((i) => i.kind === 'file');
+    const file = item?.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    await attachAndSend(file);
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="border-t border-border-subtle bg-surface px-4 py-3">
+    <form
+      onSubmit={handleSubmit}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!disabled && !uploading) setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        // Ignore the events fired while crossing between child elements.
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDragging(false);
+      }}
+      onDrop={handleDrop}
+      className="relative border-t border-border-subtle bg-surface px-4 py-3"
+    >
+      {dragging && (
+        <div
+          className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-card
+            border-2 border-dashed border-brand bg-brand-subtle/80 text-sm font-medium text-brand"
+        >
+          Drop to upload
+        </div>
+      )}
+
       <div
-        className="flex items-end gap-2 rounded-card border border-border-subtle bg-surface-raised px-2 py-1.5
-          focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25"
+        className={`flex items-end gap-2 rounded-card border bg-surface-raised px-2 py-1.5
+          focus-within:ring-2 focus-within:ring-brand/25
+          ${tooLong ? 'border-danger focus-within:border-danger' : 'border-border-subtle focus-within:border-brand'}`}
       >
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
           onChange={handleFileChange}
           disabled={disabled || uploading}
           className="hidden"
@@ -67,7 +132,7 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
         />
         <label
           htmlFor="composer-file"
-          title="Attach an image"
+          title="Attach a file"
           className="cursor-pointer rounded-lg px-2 py-1.5 text-content-muted transition hover:bg-surface-sunken hover:text-content"
         >
           {uploading ? <Spinner /> : '📎'}
@@ -82,20 +147,33 @@ export function Composer({ onSend, onAttach, uploading, disabled, placeholder }:
             resize();
           }}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           disabled={disabled}
           placeholder={placeholder ?? 'Message'}
           aria-label="Message"
+          aria-invalid={tooLong || undefined}
           className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-sm text-content outline-none
             placeholder:text-content-muted disabled:opacity-50"
         />
 
-        <Button type="submit" disabled={disabled || uploading || draft.trim().length === 0} className="px-3 py-1.5">
+        <Button type="submit" disabled={disabled || uploading || !canSend} className="px-3 py-1.5">
           Send
         </Button>
       </div>
-      <p className="mt-1 px-1 text-xs text-content-muted">
-        <kbd className="font-sans">Enter</kbd> to send · <kbd className="font-sans">Shift+Enter</kbd> for a new line
-      </p>
+
+      <div className="mt-1 flex items-baseline justify-between gap-3 px-1 text-xs">
+        <p className="text-content-muted">
+          <kbd className="font-sans">Enter</kbd> to send · <kbd className="font-sans">Shift+Enter</kbd> for a new line
+        </p>
+        {draft.length >= COUNTER_VISIBLE_FROM && (
+          <p
+            aria-live="polite"
+            className={`shrink-0 tabular-nums ${tooLong ? 'font-medium text-danger' : 'text-content-muted'}`}
+          >
+            {tooLong ? `${-remaining} over limit` : `${remaining} left`}
+          </p>
+        )}
+      </div>
     </form>
   );
 }

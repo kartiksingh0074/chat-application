@@ -2,7 +2,11 @@ import type { Socket } from 'socket.io';
 import { z } from 'zod';
 import { ulid } from 'ulidx';
 import { and, eq } from 'drizzle-orm';
-import type { ClientToServerEvents, ServerToClientEvents } from '@chat-application/shared';
+import {
+  MAX_MESSAGE_LENGTH,
+  type ClientToServerEvents,
+  type ServerToClientEvents,
+} from '@chat-application/shared';
 import { db } from '../db/client.js';
 import { messages, roomMembers } from '../db/schema.js';
 import { env } from '../config/env.js';
@@ -19,7 +23,7 @@ const messageSendSchema = z
   .object({
     roomId: z.string().min(1),
     tempId: z.string().min(1),
-    body: z.string().min(1).max(4000).optional(),
+    body: z.string().min(1).max(MAX_MESSAGE_LENGTH).optional(),
     attachmentKey: z.string().min(1).optional(),
   })
   .refine((p) => p.body !== undefined || p.attachmentKey !== undefined, {

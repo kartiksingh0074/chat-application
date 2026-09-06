@@ -1,5 +1,5 @@
 import type { Member } from '../hooks/useMembers.js';
-import type { Room } from '../hooks/useRooms.js';
+import { roomTitle, type Room } from '../hooks/useRooms.js';
 import { Avatar, Button } from '../ui/primitives.js';
 
 interface RoomHeaderProps {
@@ -19,10 +19,13 @@ export function RoomHeader({
   onOpenMembers,
   onOpenSidebar,
 }: RoomHeaderProps) {
+  const title = roomTitle(room);
   const others = members.filter((m) => m.id !== currentUserId);
   const onlineCount = others.filter((m) => online.has(m.id)).length;
-  const dmPartner = room.isDirect ? others[0] : undefined;
-  const partnerOnline = dmPartner ? online.has(dmPartner.id) : false;
+  // Prefer the peer the rooms list already carries: it is present before the
+  // members request resolves, so the header does not flash the wrong name.
+  const partnerId = room.isDirect ? (room.peer?.id ?? others[0]?.id) : undefined;
+  const partnerOnline = partnerId ? online.has(partnerId) : false;
 
   return (
     <header className="flex items-center gap-3 border-b border-border-subtle bg-surface px-4 py-3">
@@ -30,14 +33,14 @@ export function RoomHeader({
         ☰
       </Button>
 
-      {room.isDirect && dmPartner ? (
-        <Avatar name={dmPartner.username} size={36} />
+      {room.isDirect ? (
+        <Avatar name={title} size={36} />
       ) : (
         <span className="flex size-9 items-center justify-center rounded-lg bg-surface-sunken text-sm">#</span>
       )}
 
       <div className="min-w-0 flex-1">
-        <h2 className="truncate text-sm font-semibold text-content">{room.name}</h2>
+        <h2 className="truncate text-sm font-semibold text-content">{title}</h2>
         <p className="text-xs text-content-muted">
           {room.isDirect
             ? partnerOnline
