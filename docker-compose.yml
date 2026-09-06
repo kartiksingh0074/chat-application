@@ -21,7 +21,10 @@ x-app-env: &app-env
 
 services:
   postgres:
-    image: postgres:16
+    # pgvector/pgvector:pg16 is postgres:16 plus the vector extension, which
+    # PROJECT.md 8.3 requires. Same major version, so the existing data
+    # directory and volume are used unchanged.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: chatapp
       POSTGRES_PASSWORD: chatapp

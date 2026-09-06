@@ -250,3 +250,45 @@ until that is settled.
 loading and the highlight are verified against the running stack with 505k messages. The bot
 streaming and citation rendering are unit-tested at the reducer level and typecheck against the
 8.6 event contract, but nothing emits those events yet - end-to-end verification belongs to Phase 8.
+
+
+## Phase 8 groundwork
+
+**`postgres:16` has no pgvector; the image is now `pgvector/pgvector:pg16`.** Checked before
+writing any of section 8.3 rather than discovering it at migration time:
+`pg_available_extensions` had no `vector` row at all, so `CREATE EXTENSION vector` would simply
+have failed. The pgvector image is postgres:16 plus the extension (0.8.6), same major version, so
+the existing volume and data directory are reused - verified by row counts before and after
+(2 users, 5 rooms, 505,818 messages, unchanged).
+
+**That swap moved the database onto an older glibc, which needed a REINDEX.** The two images are
+built on different Debian releases: the data directory was created under glibc 2.41 and
+pgvector/pgvector:pg16 provides 2.36, so Postgres warned about a collation version mismatch on
+every connection. This is not cosmetic here - `en_US.utf8` ordering can differ between glibc
+versions, and `idx_messages_room_id_desc` is on *text* columns, which is exactly what every
+cursor-pagination query compares against. ULIDs are pure ASCII and almost certainly sort
+identically either way, but "almost certainly" is not a property to build pagination on.
+`REINDEX DATABASE chatapp` took 3.5 s on 505k rows, followed by
+`ALTER DATABASE chatapp REFRESH COLLATION VERSION`. Pagination re-verified afterwards: still an
+index scan, 0.11 ms.
+
+**Groq covers both halves of section 8, which was not obvious.** Groq is documented as an
+OpenAI-compatible *chat* endpoint and its models page lists no embedding model, so the natural
+assumption is that it cannot serve section 8.4. Probing the API settles it: `POST /openai/v1/embeddings`
+returns 401 (exists, wants a key) while `POST /openai/v1/models` returns 404, which is the control
+proving the 401 is real and not a blanket response. So one free provider covers generation and
+embeddings both.
+
+**Section 8.3's `vector(1536)` is sized for OpenAI, not Groq.** 1536 is
+`text-embedding-3-small`'s width. Groq serves `nomic-embed-text-v1_5`, which is not 1536-wide, and
+pgvector fixes the dimension in the column type - so the exact value is confirmed with a live call
+before the migration is written rather than assumed.
+
+**The 505k seeded messages cannot be the RAG corpus.** They are all one sentence with a counter
+("Seed message #432805 for load testing scrollback and pagination"), which is right for what they
+were built for - Phase 3's scrollback and Phase 7's benchmarks - and useless for retrieval: every
+embedding would be near-identical, so recall@10 and MRR would measure nothing, and section 8.8's 30
+labelled questions have no ground truth to point at. Embedding them is not free either: ~8.0M
+tokens, which against the free tier's 6,000 TPM is roughly 22 hours of throughput and ~5 days
+against the 1,000 requests/day cap. They stay in place for the phases that need them and are
+excluded from embedding; Phase 8 gets its own generated corpus in separate rooms.
