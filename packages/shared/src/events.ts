@@ -12,6 +12,11 @@ export interface ServerToClientEvents {
   'message:ack': (p: { tempId: string; id: string; createdAt: string }) => void;
   'presence:update': (p: { userId: string; online: boolean }) => void;
   'typing:update': (p: { roomId: string; userId: string; username: string; typing: boolean }) => void;
+  // Phase 8 (PROJECT.md 8.6). The client renders these today so the bot has
+  // somewhere to stream into; nothing emits them until the bot service exists.
+  'bot:token': (p: { queryId: string; token: string }) => void;
+  'bot:complete': (p: { queryId: string; messageId: string; citations: string[] }) => void;
+  'bot:error': (p: { queryId: string; message: string }) => void;
   'error': (p: { code: string; message: string }) => void;
 }
 

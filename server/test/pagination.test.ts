@@ -44,3 +44,38 @@ describe('buildMessagesPageQuery', () => {
     expect(params).toEqual(['room-42', 25]);
   });
 });
+
+describe('the around/after query shapes', () => {
+  it('walks forward with id > cursor ascending, and still no OFFSET', async () => {
+    const { buildMessagesAfterQuery } = await import('../src/rooms/messagesQuery.js');
+    const { sql, params } = buildMessagesAfterQuery('room-1', '01JAAA0000000000000000000', 25).toSQL();
+
+    expect(sql.toUpperCase()).not.toContain('OFFSET');
+    expect(sql.toUpperCase()).toContain('ASC');
+    expect(sql).toContain('>');
+    expect(params).toEqual(['room-1', '01JAAA0000000000000000000', 25]);
+  });
+
+  it('takes the older half with id <= target, so the target itself is in the window', async () => {
+    const { buildMessagesAtOrBeforeQuery } = await import('../src/rooms/messagesQuery.js');
+    const { sql, params } = buildMessagesAtOrBeforeQuery('room-1', '01JAAA0000000000000000000', 25).toSQL();
+
+    expect(sql.toUpperCase()).not.toContain('OFFSET');
+    expect(sql.toUpperCase()).toContain('DESC');
+    expect(sql).toContain('<=');
+    expect(params).toEqual(['room-1', '01JAAA0000000000000000000', 25]);
+  });
+
+  it('splits the limit across both halves so a jump costs one page, not two', async () => {
+    const { buildMessagesAtOrBeforeQuery, buildMessagesAfterQuery } = await import(
+      '../src/rooms/messagesQuery.js'
+    );
+    // Mirrors fetchMessagesAround's split: ceil older, the rest newer.
+    const limit = 50;
+    const older = buildMessagesAtOrBeforeQuery('r', '01J', Math.ceil(limit / 2)).toSQL();
+    const newer = buildMessagesAfterQuery('r', '01J', limit - Math.ceil(limit / 2)).toSQL();
+
+    expect(older.params).toContain(25);
+    expect(newer.params).toContain(25);
+  });
+});

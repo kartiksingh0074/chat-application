@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt, lte } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { messages } from '../db/schema.js';
 
@@ -19,4 +19,63 @@ export function buildMessagesPageQuery(roomId: string, before: string | undefine
     .where(condition)
     .orderBy(desc(messages.id))
     .limit(limit);
+}
+
+/**
+ * The forward direction, needed once the client can land in the middle of
+ * history via `around`: from there, scrolling *down* has somewhere to go.
+ * Ascending so the scan walks away from the cursor - a b-tree reads either
+ * way, so this is still a bounded index scan and never an OFFSET.
+ */
+export function buildMessagesAfterQuery(roomId: string, after: string, limit: number) {
+  return db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.roomId, roomId), gt(messages.id, after)))
+    .orderBy(asc(messages.id))
+    .limit(limit);
+}
+
+/**
+ * The page surrounding one message, for jumping to a citation.
+ *
+ * Two bounded range scans rather than one: `id <= target` descending for the
+ * older half, `id > target` ascending for the newer half. Neither uses OFFSET,
+ * so this costs the same whether the target is the newest message or a year
+ * back. The target is included in the older half, so it is always present when
+ * it exists at all.
+ */
+export function buildMessagesAtOrBeforeQuery(roomId: string, target: string, limit: number) {
+  return db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.roomId, roomId), lte(messages.id, target)))
+    .orderBy(desc(messages.id))
+    .limit(limit);
+}
+
+export interface MessageWindow {
+  messages: Awaited<ReturnType<typeof buildMessagesPageQuery>>;
+  hasMore: boolean;
+  hasMoreNewer: boolean;
+}
+
+export async function fetchMessagesAround(
+  roomId: string,
+  target: string,
+  limit: number,
+): Promise<MessageWindow> {
+  const olderLimit = Math.ceil(limit / 2);
+  const newerLimit = Math.max(1, limit - olderLimit);
+
+  const [olderDesc, newer] = await Promise.all([
+    buildMessagesAtOrBeforeQuery(roomId, target, olderLimit),
+    buildMessagesAfterQuery(roomId, target, newerLimit),
+  ]);
+
+  return {
+    messages: [...olderDesc.reverse(), ...newer],
+    hasMore: olderDesc.length === olderLimit,
+    hasMoreNewer: newer.length === newerLimit,
+  };
 }

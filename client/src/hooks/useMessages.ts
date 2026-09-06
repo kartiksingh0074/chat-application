@@ -15,34 +15,69 @@ const START_INDEX = 100_000_000;
 interface MessagesPage {
   messages: Message[];
   hasMore: boolean;
+  hasMoreNewer?: boolean;
 }
+
+type Cursor = { before: string } | { after: string } | { around: string } | null;
+
+/** How long a jumped-to message stays highlighted before fading back. */
+const HIGHLIGHT_MS = 2000;
 
 export function useMessages(roomId: string | null, currentUserId: string, token: string) {
   const socket = useSocket();
   const [messages, dispatch] = useReducer(messagesReducer, []);
   const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
   const [hasMore, setHasMore] = useState(true);
+  // Only true after a jump lands mid-history; the live tail is always the
+  // newest, so there is nothing below it to fetch.
+  const [hasMoreNewer, setHasMoreNewer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [loadingNewer, setLoadingNewer] = useState(false);
+  // Bumped whenever the window is swapped wholesale. Virtuoso requires
+  // firstItemIndex to only ever decrease, which a jump cannot honour - so the
+  // list is remounted on this key instead of fighting the invariant.
+  const [windowEpoch, setWindowEpoch] = useState(0);
+  const [scrollToId, setScrollToId] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const pendingTimeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function fetchPage(before?: string): Promise<MessagesPage> {
+  async function fetchPage(cursor: Cursor = null): Promise<MessagesPage> {
     const url = new URL(`${API_BASE_URL}/rooms/${roomId}/messages`);
     url.searchParams.set('limit', String(PAGE_SIZE));
-    if (before) url.searchParams.set('before', before);
+    if (cursor && 'before' in cursor) url.searchParams.set('before', cursor.before);
+    if (cursor && 'after' in cursor) url.searchParams.set('after', cursor.after);
+    if (cursor && 'around' in cursor) url.searchParams.set('around', cursor.around);
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) throw new Error(`failed to load messages (${res.status})`);
     return res.json();
+  }
+
+  function flagHighlight(messageId: string) {
+    setHighlightId(messageId);
+    if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+    highlightTimeout.current = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
   }
 
   useEffect(() => {
     dispatch({ type: 'reset' });
     setFirstItemIndex(START_INDEX);
     setHasMore(true);
+    setHasMoreNewer(false);
     setLoading(true);
+    setScrollToId(null);
+    setHighlightId(null);
     for (const timeout of pendingTimeouts.current.values()) clearTimeout(timeout);
     pendingTimeouts.current.clear();
   }, [roomId]);
+
+  useEffect(
+    () => () => {
+      if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!socket || !roomId) return;
@@ -83,12 +118,90 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     };
   }, [socket, roomId]);
 
+  /**
+   * Scroll the list to a message, fetching the window around it first when it
+   * is not loaded. Citation chips in a bot answer point at arbitrary messages,
+   * which may be far outside whatever page is currently on screen.
+   */
+  async function jumpTo(messageId: string) {
+    if (!roomId) return;
+
+    // Already on screen: remount at that index rather than calling
+    // scrollToIndex. With firstItemIndex in play the two use different
+    // coordinate spaces, and initialTopMostItemIndex is unambiguously the
+    // position in the data array.
+    if (messages.some((m) => m.id === messageId)) {
+      setScrollToId(messageId);
+      setWindowEpoch((n) => n + 1);
+      flagHighlight(messageId);
+      return;
+    }
+
+    try {
+      const page = await fetchPage({ around: messageId });
+      if (page.messages.length === 0) return;
+      dispatch({
+        type: 'replace',
+        messages: page.messages.map((m) => ({ ...m, status: 'delivered' as const })),
+      });
+      setFirstItemIndex(START_INDEX - page.messages.length);
+      setHasMore(page.hasMore);
+      setHasMoreNewer(page.hasMoreNewer ?? false);
+      setWindowEpoch((n) => n + 1);
+      setScrollToId(messageId);
+      flagHighlight(messageId);
+    } catch {
+      // Leave the list where it is; the chip simply does nothing.
+    }
+  }
+
+  /** Called once the list has acted on a scroll request. */
+  function clearScrollTarget() {
+    setScrollToId(null);
+  }
+
+  /** Return to the live tail after a jump left the list mid-history. */
+  async function returnToLatest() {
+    if (!roomId) return;
+    try {
+      const page = await fetchPage();
+      dispatch({
+        type: 'replace',
+        messages: page.messages.map((m) => ({ ...m, status: 'delivered' as const })),
+      });
+      setFirstItemIndex(START_INDEX - page.messages.length);
+      setHasMore(page.hasMore);
+      setHasMoreNewer(false);
+      setWindowEpoch((n) => n + 1);
+    } catch {
+      // Stay put.
+    }
+  }
+
+  async function loadNewer() {
+    if (loadingNewer || !hasMoreNewer || !roomId || messages.length === 0) return;
+    setLoadingNewer(true);
+    try {
+      const newest = messages[messages.length - 1]!;
+      const page = await fetchPage({ after: newest.id });
+      dispatch({
+        type: 'append',
+        messages: page.messages.map((m) => ({ ...m, status: 'delivered' as const })),
+      });
+      setHasMoreNewer(page.hasMoreNewer ?? false);
+    } catch {
+      // leave hasMoreNewer as-is; the next scroll will retry
+    } finally {
+      setLoadingNewer(false);
+    }
+  }
+
   async function loadOlder() {
     if (loadingOlder || !hasMore || !roomId || messages.length === 0) return;
     setLoadingOlder(true);
     try {
       const oldest = messages[0]!;
-      const page = await fetchPage(oldest.id);
+      const page = await fetchPage({ before: oldest.id });
       dispatch({ type: 'prepend', messages: page.messages.map((m) => ({ ...m, status: 'delivered' as const })) });
       setFirstItemIndex((prev) => prev - page.messages.length);
       setHasMore(page.hasMore);
@@ -152,10 +265,18 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     sendMessage,
     retryMessage,
     loadOlder,
+    loadNewer,
+    jumpTo,
+    returnToLatest,
+    clearScrollTarget,
     hasMore,
+    hasMoreNewer,
     loading,
     loadingOlder,
     firstItemIndex,
+    windowEpoch,
+    scrollToId,
+    highlightId,
   } as const;
 }
 

@@ -207,3 +207,46 @@ only, so the fix for open-source nginx is to recreate it whenever the app contai
 
 Worth remembering before any future benchmark run: a Phase 7 measurement taken in this state would
 have reported single-node numbers while appearing to test two.
+
+
+## UI Stage D
+
+**`around` is two bounded scans, not one clever query.** `id <= target` descending for the older
+half and `id > target` ascending for the newer half, merged. Both are indexed range scans with a
+LIMIT, so a jump costs the same whether the citation points at yesterday or at message 250,000.
+Measured on the 505k-row seeded room: 0.06 ms and ~6 shared buffers per half, and 20 ms for the
+whole round trip through nginx.
+
+Worth noting for accuracy: with one room dominating the table the planner picks `messages_pkey`
+and filters `room_id`, not `idx_messages_room_id_desc`. The property that matters - cost
+independent of depth, no OFFSET - holds either way, and a realistic multi-room distribution would
+favour the composite index.
+
+**A jump remounts the list instead of calling `scrollToIndex`.** Virtuoso requires `firstItemIndex`
+to only ever decrease, which a jump backwards through history cannot honour, and with
+`firstItemIndex` in play `scrollToIndex` and `initialTopMostItemIndex` do not agree on a coordinate
+space. Remounting on a `windowEpoch` key sidesteps both: `initialTopMostItemIndex` is unambiguously
+an index into the data array. The cost is discarding scroll position, which a jump discards anyway.
+
+**`followOutput` is disabled while the window is mid-history.** Following the tail is only correct
+when the tail is loaded. Without this, a message arriving while you read a citation would yank you
+away from it. For the same reason the scroll-to-bottom button refetches the live tail rather than
+scrolling, when there are newer messages outside the window.
+
+**Streaming renders outside the virtualized list.** Tokens arrive several times a second, and
+pushing each through Virtuoso as a changed item would re-measure the list on every character. The
+in-flight answer is its own block above the composer; once persisted it becomes an ordinary message
+and the list takes over.
+
+**Open question for Phase 8: citations have nowhere to live.** Section 8.6 carries them on the
+`bot:complete` event, and 8.3's schema has no column for them - so a bot answer read back from
+history has no citations to render, and the chips vanish on reload. Phase 8 has to either add a
+column (a `citations text[]` on `messages`, or a `message_citations` join table) or re-run
+retrieval to rebuild them. Flagged rather than decided, since it changes 8.3's schema. The client
+lookup is in-memory only today and returns nothing after a refresh, which is the honest behaviour
+until that is settled.
+
+**What is and is not verified here.** The `around` / `after` query shapes, the jump, forward
+loading and the highlight are verified against the running stack with 505k messages. The bot
+streaming and citation rendering are unit-tested at the reducer level and typecheck against the
+8.6 event contract, but nothing emits those events yet - end-to-end verification belongs to Phase 8.

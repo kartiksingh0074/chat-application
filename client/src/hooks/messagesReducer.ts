@@ -8,6 +8,8 @@ export interface DisplayMessage extends Message {
 export type MessagesAction =
   | { type: 'reset' }
   | { type: 'prepend'; messages: DisplayMessage[] }
+  | { type: 'append'; messages: DisplayMessage[] }
+  | { type: 'replace'; messages: DisplayMessage[] }
   | { type: 'send'; message: DisplayMessage }
   | { type: 'ack'; tempId: string; id: string; createdAt: string }
   | { type: 'receive'; message: Message }
@@ -21,6 +23,19 @@ export function messagesReducer(state: DisplayMessage[], action: MessagesAction)
 
     case 'prepend':
       return [...action.messages, ...state];
+
+    // Scrolling down after landing mid-history. Filtered because a live
+    // message:new can arrive for the same id while the page is in flight.
+    case 'append': {
+      const known = new Set(state.map((m) => m.id));
+      const fresh = action.messages.filter((m) => !known.has(m.id));
+      return fresh.length === 0 ? state : [...state, ...fresh];
+    }
+
+    // Jumping to a citation lands on a window that may not overlap what is
+    // loaded, so the list is swapped wholesale rather than merged.
+    case 'replace':
+      return action.messages;
 
     case 'send':
       return [...state, action.message];

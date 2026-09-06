@@ -5,6 +5,7 @@ import { Avatar } from '../ui/primitives.js';
 import { Linkified } from '../ui/linkify.js';
 import { useToast } from '../ui/ToastProvider.js';
 import { Attachment } from './Attachment.js';
+import { CitationChips } from './BotAnswer.js';
 
 interface MessageListProps {
   messages: DisplayMessage[];
@@ -14,6 +15,18 @@ interface MessageListProps {
   onOpenProfile: (userId: string, anchor: DOMRect) => void;
   firstItemIndex: number;
   loadOlder: () => void;
+  loadNewer: () => void;
+  hasMoreNewer: boolean;
+  onReturnToLatest: () => void;
+  /** Remount key: bumped when the loaded window is swapped by a jump. */
+  windowEpoch: number;
+  /** Message to open at, in the current window. */
+  scrollToId: string | null;
+  /** Message to flash after a jump. */
+  highlightId: string | null;
+  onJumpTo: (messageId: string) => void;
+  botUserId?: string | null;
+  citationsFor: (messageId: string) => string[];
   onRetry: (tempId: string) => void;
   onOpenImage: (url: string) => void;
 }
@@ -41,6 +54,15 @@ export function MessageList({
   onOpenProfile,
   firstItemIndex,
   loadOlder,
+  loadNewer,
+  hasMoreNewer,
+  onReturnToLatest,
+  windowEpoch,
+  scrollToId,
+  highlightId,
+  onJumpTo,
+  botUserId,
+  citationsFor,
   onRetry,
   onOpenImage,
 }: MessageListProps) {
@@ -68,9 +90,17 @@ export function MessageList({
     if (atBottom) setMissed(0);
   }, [atBottom]);
 
+  // After a jump the newest message is no longer loaded, so "go to the
+  // bottom" has to refetch the live tail rather than scroll within the window.
   function jumpToBottom() {
+    if (hasMoreNewer) {
+      onReturnToLatest();
+      return;
+    }
     virtuoso.current?.scrollToIndex({ index: 'LAST', behavior: 'smooth', align: 'end' });
   }
+
+  const openAt = scrollToId ? messages.findIndex((m) => m.id === scrollToId) : -1;
 
   async function copyMessage(body: string) {
     try {
@@ -84,13 +114,20 @@ export function MessageList({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <Virtuoso
+        key={windowEpoch}
         ref={virtuoso}
         className="flex-1"
         data={messages}
         firstItemIndex={firstItemIndex}
-        initialTopMostItemIndex={Math.max(0, messages.length - 1)}
+        initialTopMostItemIndex={
+          openAt >= 0 ? { index: openAt, align: 'center' } : Math.max(0, messages.length - 1)
+        }
         startReached={loadOlder}
-        followOutput="smooth"
+        endReached={hasMoreNewer ? loadNewer : undefined}
+        // Following the tail is only correct while the tail is loaded. Mid
+        // history a new message must not yank the reader away from the
+        // citation they just jumped to.
+        followOutput={hasMoreNewer ? false : 'smooth'}
         atBottomStateChange={setAtBottom}
         atBottomThreshold={80}
         computeItemKey={(_, m) => m.tempId ?? m.id}
@@ -100,7 +137,10 @@ export function MessageList({
           const newDay = !prior || dayKey(prior.createdAt) !== dayKey(m.createdAt);
           const grouped = !newDay && !startsGroup(m, prior);
           const mine = m.senderId === currentUserId;
-          const name = mine ? 'You' : nameFor(m.senderId);
+          const isBot = botUserId != null && m.senderId === botUserId;
+          const name = isBot ? 'Bot' : mine ? 'You' : nameFor(m.senderId);
+          const citations = isBot ? citationsFor(m.id) : [];
+          const highlighted = m.id === highlightId;
 
           return (
             <div>
@@ -115,11 +155,27 @@ export function MessageList({
               )}
 
               <div
-                className={`group relative flex gap-3 px-4 transition-colors hover:bg-surface-sunken/60
-                  ${grouped ? 'py-0.5' : 'pb-0.5 pt-2'}`}
+                className={`group relative flex gap-3 px-4 transition-colors
+                  ${grouped ? 'py-0.5' : 'pb-0.5 pt-2'}
+                  ${isBot ? 'border-l-2 border-brand bg-brand-subtle/20' : ''}
+                  ${
+                    highlighted
+                      ? 'bg-warning/25'
+                      : isBot
+                        ? 'hover:bg-brand-subtle/30'
+                        : 'hover:bg-surface-sunken/60'
+                  }`}
               >
                 <div className="w-9 shrink-0">
-                  {!grouped && (
+                  {!grouped && isBot && (
+                    <span
+                      aria-hidden
+                      className="flex size-9 items-center justify-center rounded-full bg-brand text-brand-content"
+                    >
+                      ✦
+                    </span>
+                  )}
+                  {!grouped && !isBot && (
                     <button
                       onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
                       aria-label={`View ${name === 'You' ? 'your' : `${name}'s`} profile`}
@@ -138,13 +194,25 @@ export function MessageList({
                 <div className="min-w-0 flex-1">
                   {!grouped && (
                     <div className="flex items-baseline gap-2">
-                      <button
-                        onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
-                        className="text-sm font-semibold text-content hover:underline
-                          focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
-                      >
-                        {name}
-                      </button>
+                      {isBot && (
+                        <span className="text-sm font-semibold text-brand">
+                          Bot
+                          <span className="ml-1.5 rounded bg-brand px-1 py-px text-[10px] font-bold uppercase text-brand-content">
+                            app
+                          </span>
+                        </span>
+                      )}
+                      {!isBot && (
+                        <button
+                          onClick={(e) =>
+                            onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())
+                          }
+                          className="text-sm font-semibold text-content hover:underline
+                            focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
+                        >
+                          {name}
+                        </button>
+                      )}
                       <time
                         dateTime={m.createdAt}
                         className="text-xs text-content-muted"
@@ -167,6 +235,8 @@ export function MessageList({
                   {m.attachmentKey && (
                     <Attachment attachmentKey={m.attachmentKey} onOpenImage={onOpenImage} />
                   )}
+
+                  <CitationChips citations={citations} onJumpTo={onJumpTo} />
 
                   {m.status === 'failed' && (
                     <p className="mt-1 flex items-center gap-2 text-xs text-danger">
@@ -221,6 +291,7 @@ export function MessageList({
               {missed > 99 ? '99+' : missed} new
             </span>
           )}
+          {hasMoreNewer && <span>Jump to present</span>}
           <span aria-hidden>↓</span>
           <span className="sr-only">Jump to the newest message</span>
         </button>

@@ -5,7 +5,11 @@ import { ulid } from 'ulidx';
 import { db } from '../db/client.js';
 import { roomMembers, rooms, users } from '../db/schema.js';
 import { requireAuth, type AuthedRequest } from '../auth/middleware.js';
-import { buildMessagesPageQuery } from './messagesQuery.js';
+import {
+  buildMessagesAfterQuery,
+  buildMessagesPageQuery,
+  fetchMessagesAround,
+} from './messagesQuery.js';
 
 export const roomsRouter = Router();
 
@@ -47,10 +51,19 @@ roomsRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
   });
 });
 
-const messagesQuerySchema = z.object({
-  before: z.string().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-});
+const messagesQuerySchema = z
+  .object({
+    before: z.string().min(1).optional(),
+    after: z.string().min(1).optional(),
+    around: z.string().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+  })
+  // Three directions that each anchor the window somewhere different; combining
+  // them has no coherent meaning, so reject rather than silently pick one.
+  .refine(
+    (q) => [q.before, q.after, q.around].filter(Boolean).length <= 1,
+    { message: 'use at most one of before, after or around' },
+  );
 
 roomsRouter.get('/:id/messages', requireAuth, async (req: AuthedRequest, res) => {
   const roomId = req.params.id;
@@ -64,7 +77,7 @@ roomsRouter.get('/:id/messages', requireAuth, async (req: AuthedRequest, res) =>
     res.status(400).json({ code: 'invalid_query', message: parsed.error.message });
     return;
   }
-  const { before, limit } = parsed.data;
+  const { before, after, around, limit } = parsed.data;
 
   const membership = await db.query.roomMembers.findFirst({
     where: and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, req.userId!)),
@@ -74,10 +87,25 @@ roomsRouter.get('/:id/messages', requireAuth, async (req: AuthedRequest, res) =>
     return;
   }
 
+  // Jumping to a citation: a window centred on one message, which may be
+  // anywhere in history.
+  if (around) {
+    const window = await fetchMessagesAround(roomId, around, limit);
+    res.json(window);
+    return;
+  }
+
+  // Scrolling down after such a jump.
+  if (after) {
+    const page = await buildMessagesAfterQuery(roomId, after, limit);
+    res.json({ messages: page, hasMore: false, hasMoreNewer: page.length === limit });
+    return;
+  }
+
   const page = await buildMessagesPageQuery(roomId, before, limit);
   page.reverse(); // DESC (newest-first, for the indexed cursor scan) -> ascending, for the client to prepend
 
-  res.json({ messages: page, hasMore: page.length === limit });
+  res.json({ messages: page, hasMore: page.length === limit, hasMoreNewer: false });
 });
 
 roomsRouter.get('/:id/members', requireAuth, async (req: AuthedRequest, res) => {

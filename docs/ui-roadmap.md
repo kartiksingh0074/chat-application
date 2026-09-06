@@ -125,18 +125,28 @@ instances and the typing event still crossed, with no self-echo and no leak to a
 `docs/decisions.md` — it caches upstream IPs at startup, so rebuilding the app containers without
 recreating nginx silently halves the cluster.
 
-### Stage D — Phase 8 prerequisites. Not optional; §8.6 requires them.
+### Stage D — Phase 8 prerequisites ✅ Done
 
-- [ ] **`around` pagination mode** — extend `buildMessagesPageQuery` with a third shape: `limit/2`
-  rows `id >= target` ascending, `limit/2` rows `id < target` descending, merged. Same
-  `idx_messages_room_id_desc` index, still no OFFSET. **M**
-- [ ] **Jump-to-message** — citation chip scrolls the virtuoso list to the cited message, fetching the
-  surrounding page first when it is not loaded, then briefly highlighting it. **M**
-- [ ] **Bot message styling** — distinct treatment plus citation chips. **S**
-- [ ] **Streaming token rendering** — `bot:token` appends progressively without re-rendering the list. **M**
+- [x] **`around` pagination mode** — `id <= target` descending plus `id > target` ascending, merged.
+  Also added the `after` direction, which `around` implies: once you can land mid-history,
+  scrolling *down* needs somewhere to go. Still no OFFSET. **M**
+- [x] **Jump-to-message** — a citation chip scrolls to the cited message, fetching the surrounding
+  window when it is not loaded, and flashes it for 2 s. The list remounts on a `windowEpoch` key
+  rather than calling `scrollToIndex`, because a backwards jump cannot honour Virtuoso's
+  "`firstItemIndex` only decreases" rule. **M**
+- [x] **Bot message styling** — brand-tinted row, ✦ avatar, "app" tag, citation chips. **S**
+- [x] **Streaming token rendering** — `bot:token` / `bot:complete` / `bot:error` accumulate into a
+  block above the composer, outside the virtualized list so a token does not re-measure it. **M**
 
-**Exit:** verifiable only once Phase 8 exists, so Stage D lands immediately before it and is
-validated by §8.7 criterion 4.
+**Exit — partly met, honestly.** The query shapes, jump, forward loading and highlight are verified
+against the running stack: a window centred on a message 250,000 rows deep returns in 20 ms, with
+the target at the centre and both `hasMore` flags correct. The bot rendering is unit-tested at the
+reducer level (12 tests) and typechecks against the §8.6 contract, but **nothing emits those events
+yet** — end-to-end verification is §8.7 criterion 4, in Phase 8 itself.
+
+**Found while building:** §8.6 carries citations on the `bot:complete` event, but §8.3's schema has
+nowhere to store them, so chips would vanish on reload. Phase 8 has to add a column or re-derive.
+See `docs/decisions.md`.
 
 ---
 

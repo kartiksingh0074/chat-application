@@ -82,3 +82,38 @@ describe('messagesReducer', () => {
     expect(result).toEqual([...older, ...existing]);
   });
 });
+
+describe('messagesReducer window actions', () => {
+  const msg = (id: string): DisplayMessage => ({
+    id,
+    roomId: 'r1',
+    senderId: 'u1',
+    body: id,
+    attachmentKey: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    status: 'delivered',
+  });
+
+  it('replaces the whole window when a jump lands somewhere unrelated', () => {
+    const before = [msg('a'), msg('b')];
+    const after = [msg('x'), msg('y')];
+    expect(messagesReducer(before, { type: 'replace', messages: after })).toEqual(after);
+  });
+
+  it('appends newer messages when scrolling down after a jump', () => {
+    const state = [msg('a'), msg('b')];
+    const next = messagesReducer(state, { type: 'append', messages: [msg('c')] });
+    expect(next.map((m) => m.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('does not duplicate a message that also arrived live while the page was in flight', () => {
+    const state = [msg('a'), msg('b')];
+    const next = messagesReducer(state, { type: 'append', messages: [msg('b'), msg('c')] });
+    expect(next.map((m) => m.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('returns the same array when an append adds nothing, so React can skip the render', () => {
+    const state = [msg('a')];
+    expect(messagesReducer(state, { type: 'append', messages: [msg('a')] })).toBe(state);
+  });
+});

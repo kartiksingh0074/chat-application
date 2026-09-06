@@ -6,12 +6,14 @@ import { useMembers } from '../hooks/useMembers.js';
 import { useUpload } from '../hooks/useUpload.js';
 import { usePresence } from '../hooks/usePresence.js';
 import { useTyping, typingLabel } from '../hooks/useTyping.js';
+import { useBotStreams } from '../hooks/useBotStreams.js';
 import { useSocket } from '../socket/SocketProvider.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { RoomHeader } from '../components/RoomHeader.js';
 import { MessageList } from '../components/MessageList.js';
 import { MemberPanel } from '../components/MemberPanel.js';
 import { UserCard } from '../components/UserCard.js';
+import { BotAnswer } from '../components/BotAnswer.js';
 import { Composer } from '../components/Composer.js';
 import { ImageLightbox, MembersDialog, NewDmDialog, NewRoomDialog } from '../components/dialogs.js';
 import { SettingsPage } from './SettingsPage.js';
@@ -43,15 +45,26 @@ export function ChatPage() {
   const [view, setView] = useState<'chat' | 'people'>('chat');
   const [profile, setProfile] = useState<{ userId: string; anchor: DOMRect } | null>(null);
 
-  const { messages, sendMessage, retryMessage, loadOlder, firstItemIndex, loading: messagesLoading } = useMessages(
-    activeRoomId,
-    user!.id,
-    token!,
-  );
+  const {
+    messages,
+    sendMessage,
+    retryMessage,
+    loadOlder,
+    loadNewer,
+    jumpTo,
+    returnToLatest,
+    hasMoreNewer,
+    windowEpoch,
+    scrollToId,
+    highlightId,
+    firstItemIndex,
+    loading: messagesLoading,
+  } = useMessages(activeRoomId, user!.id, token!);
   const { members, nameFor, avatarFor } = useMembers(token!, activeRoomId);
   const { upload, uploading, error: uploadError } = useUpload(token!, activeRoomId);
   const online = usePresence();
   const { typists, notifyTyping, stopTyping } = useTyping(activeRoomId);
+  const { streams, dismiss, citationsFor } = useBotStreams(activeRoomId);
 
   const activeRoom = view === 'chat' ? (rooms.find((r) => r.id === activeRoomId) ?? null) : null;
 
@@ -179,10 +192,27 @@ export function ChatPage() {
                   onOpenProfile={(userId, anchor) => setProfile({ userId, anchor })}
                   firstItemIndex={firstItemIndex}
                   loadOlder={loadOlder}
+                  loadNewer={loadNewer}
+                  hasMoreNewer={hasMoreNewer}
+                  onReturnToLatest={returnToLatest}
+                  windowEpoch={windowEpoch}
+                  scrollToId={scrollToId}
+                  highlightId={highlightId}
+                  onJumpTo={jumpTo}
+                  citationsFor={citationsFor}
                   onRetry={retryMessage}
                   onOpenImage={setLightbox}
                 />
               )}
+
+              {streams.map((stream) => (
+                <BotAnswer
+                  key={stream.queryId}
+                  stream={stream}
+                  onJumpTo={jumpTo}
+                  onDismiss={dismiss}
+                />
+              ))}
 
               <Composer
                 onSend={sendMessage}
