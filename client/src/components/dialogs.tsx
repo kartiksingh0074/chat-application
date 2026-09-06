@@ -136,7 +136,7 @@ export function MembersDialog({
 export function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+      className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Image preview"

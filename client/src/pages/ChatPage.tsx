@@ -9,11 +9,13 @@ import { useSocket } from '../socket/SocketProvider.js';
 import { Sidebar } from '../components/Sidebar.js';
 import { RoomHeader } from '../components/RoomHeader.js';
 import { MessageList } from '../components/MessageList.js';
+import { MemberPanel } from '../components/MemberPanel.js';
 import { Composer } from '../components/Composer.js';
 import { ImageLightbox, MembersDialog, NewDmDialog, NewRoomDialog } from '../components/dialogs.js';
 import { SettingsPage } from './SettingsPage.js';
-import { EmptyState, Spinner } from '../ui/primitives.js';
+import { EmptyState, MessageListSkeleton, Spinner } from '../ui/primitives.js';
 import { useToast } from '../ui/ToastProvider.js';
+import { useStoredState } from '../hooks/useStoredState.js';
 
 type Dialog = 'newRoom' | 'newDm' | 'members' | 'settings' | null;
 
@@ -28,8 +30,9 @@ export function ChatPage() {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [memberPanelOpen, setMemberPanelOpen] = useStoredState('chat-member-panel-open', true);
 
-  const { messages, sendMessage, retryMessage, loadOlder, firstItemIndex } = useMessages(
+  const { messages, sendMessage, retryMessage, loadOlder, firstItemIndex, loading: messagesLoading } = useMessages(
     activeRoomId,
     user!.id,
     token!,
@@ -101,49 +104,61 @@ export function ChatPage() {
         />
       </div>
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        {roomsLoading ? (
-          <div className="flex flex-1 items-center justify-center text-content-muted">
-            <Spinner />
-          </div>
-        ) : !activeRoom ? (
-          <EmptyState title="No conversation selected" hint="Create a room or start a direct message." />
-        ) : (
-          <>
-            <RoomHeader
-              room={activeRoom}
-              members={members}
-              online={online}
-              currentUserId={user!.id}
-              onOpenMembers={() => setDialog('members')}
-              onOpenSidebar={() => setSidebarOpen(true)}
-            />
-
-            {messages.length === 0 ? (
-              <div className="flex-1">
-                <EmptyState title="No messages yet" hint="Say something to get the conversation started." />
-              </div>
-            ) : (
-              <MessageList
-                messages={messages}
+      <div className="flex min-w-0 flex-1">
+        <main className="flex min-w-0 flex-1 flex-col">
+          {roomsLoading ? (
+            <div className="flex flex-1 items-center justify-center text-content-muted">
+              <Spinner />
+            </div>
+          ) : !activeRoom ? (
+            <EmptyState title="No conversation selected" hint="Create a room or start a direct message." />
+          ) : (
+            <>
+              <RoomHeader
+                room={activeRoom}
+                members={members}
+                online={online}
                 currentUserId={user!.id}
-                nameFor={nameFor}
-                firstItemIndex={firstItemIndex}
-                loadOlder={loadOlder}
-                onRetry={retryMessage}
-                onOpenImage={setLightbox}
+                onOpenMembers={() => setDialog('members')}
+                onToggleMemberPanel={() => setMemberPanelOpen((open) => !open)}
+                memberPanelOpen={memberPanelOpen}
+                onOpenSidebar={() => setSidebarOpen(true)}
               />
-            )}
 
-            <Composer
-              onSend={sendMessage}
-              onAttach={upload}
-              uploading={uploading}
-              placeholder={`Message ${activeRoom.isDirect ? '' : '#'}${roomTitle(activeRoom)}`}
-            />
-          </>
+              {messagesLoading ? (
+                <MessageListSkeleton />
+              ) : messages.length === 0 ? (
+                <div className="flex-1">
+                  <EmptyState title="No messages yet" hint="Say something to get the conversation started." />
+                </div>
+              ) : (
+                <MessageList
+                  messages={messages}
+                  currentUserId={user!.id}
+                  nameFor={nameFor}
+                  firstItemIndex={firstItemIndex}
+                  loadOlder={loadOlder}
+                  onRetry={retryMessage}
+                  onOpenImage={setLightbox}
+                />
+              )}
+
+              <Composer
+                onSend={sendMessage}
+                onAttach={upload}
+                uploading={uploading}
+                placeholder={`Message ${activeRoom.isDirect ? '' : '#'}${roomTitle(activeRoom)}`}
+              />
+            </>
+          )}
+        </main>
+
+        {activeRoom && !activeRoom.isDirect && memberPanelOpen && (
+          <div className="hidden xl:block">
+            <MemberPanel members={members} online={online} currentUserId={user!.id} />
+          </div>
         )}
-      </main>
+      </div>
 
       {dialog === 'newRoom' && (
         <NewRoomDialog

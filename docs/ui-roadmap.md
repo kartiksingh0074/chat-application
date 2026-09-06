@@ -77,20 +77,30 @@ The five questions from the previous draft, answered. All reversible.
 **Exit met.** Verified against the running stack: one stored row `"alice & bob"` returns
 `peer: bob` to alice and `peer: alice` to bob. 45 tests pass (was 17).
 
-### Stage B — The Discord shell. Cheap, high visual return.
+### Stage B — The Discord shell. Cheap, high visual return. ✅ Done
 
-- [ ] **Dark-first palette retune** — tokens already exist in `client/src/index.css`; mostly oklch
-  value changes. **S**
-- [ ] **Right-hand member list panel** — online grouped above offline, wide screens only. The most
-  recognisable single element. **M**
-- [ ] **Collapsible sidebar sections** — Rooms / Direct Messages as groups. **S**
-- [ ] **Scroll-to-bottom button + "N new messages" badge** — needs care with `react-virtuoso`'s
-  `atBottomStateChange`. **S–M**
-- [ ] **Hover toolbar (reduced)** — copy and jump-link only. Edit/delete need a migration and are
-  deferred; react/reply/thread are banned by §1. Worth knowing this ends up thinner than Discord's. **M**
-- [ ] **Loading skeletons + micro-animations** — replaces bare spinners; message enter, dialog fade. **S**
+- [x] **Dark-first palette retune** — neutral dark greys with a trace of blue; dark is now the
+  default theme rather than following the OS. Needed one new token, `--color-surface-nav`: the
+  sidebar has to sit *behind* the conversation, but this codebase's `surface-raised` is lighter
+  than `surface`, so reusing it would have pushed the nav forward instead. **S**
+- [x] **Right-hand member list panel** — online above offline, offline dimmed rather than hidden
+  so the room still shows its true size. Visible from `xl` up; narrower screens keep the dialog. **M**
+- [x] **Collapsible sidebar sections** — Rooms / Direct Messages, with counts. Collapsed state
+  persists per section. **S**
+- [x] **Scroll-to-bottom button + "N new messages" badge** — the count only tracks messages that
+  arrive at the *end*: loading older history also grows the array, so comparing the last message id
+  is what separates "new message" from "scrolled into the past". **S–M**
+- [x] **Hover toolbar** — *copy only.* The jump-link half needs the Stage D `around` query, so it
+  lands there. Reactions, replies and threads are banned by §1, so this stays a one-button toolbar
+  until then. **M**
+- [x] **Loading skeletons** — sidebar and message list, shaped like the content they replace.
+  `useMessages` grew a `loading` flag so the message skeleton has something to key off. **S**
+- [~] **Micro-animations** — dialog fade, modal pop, toolbar and jump-button entrance, hover
+  transitions. **Message-enter animation deliberately skipped:** `react-virtuoso` recycles rows, so
+  a CSS enter animation re-fires every time a message scrolls back into view. Discord does not
+  animate message entry either. **S**
 
-**Exit:** a screenshot reads as a real chat app at a glance.
+**Exit met.** 45 tests pass, `tsc` clean, CSS 21.65 → 24.41 kB.
 
 ### Stage C — People and presence
 

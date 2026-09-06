@@ -8,6 +8,8 @@ interface RoomHeaderProps {
   online: Set<string>;
   currentUserId: string;
   onOpenMembers: () => void;
+  onToggleMemberPanel: () => void;
+  memberPanelOpen: boolean;
   onOpenSidebar: () => void;
 }
 
@@ -17,6 +19,8 @@ export function RoomHeader({
   online,
   currentUserId,
   onOpenMembers,
+  onToggleMemberPanel,
+  memberPanelOpen,
   onOpenSidebar,
 }: RoomHeaderProps) {
   const title = roomTitle(room);
@@ -51,9 +55,25 @@ export function RoomHeader({
       </div>
 
       {!room.isDirect && (
-        <Button variant="secondary" onClick={onOpenMembers} className="px-2.5 py-1.5 text-xs">
-          Members
-        </Button>
+        <>
+          {/* Narrow screens have no room for the panel, so they keep the dialog. */}
+          <Button
+            variant="secondary"
+            onClick={onOpenMembers}
+            className="px-2.5 py-1.5 text-xs xl:hidden"
+          >
+            Members
+          </Button>
+          <Button
+            variant={memberPanelOpen ? 'primary' : 'secondary'}
+            onClick={onToggleMemberPanel}
+            aria-pressed={memberPanelOpen}
+            aria-label="Toggle member list"
+            className="hidden px-2.5 py-1.5 text-xs xl:inline-flex"
+          >
+            Members
+          </Button>
+        </>
       )}
     </header>
   );

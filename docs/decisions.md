@@ -140,3 +140,32 @@ Widening the picker to all files made it worth closing.
 copied verbatim from §5 and shouldn't accumulate unrelated helpers, so attachment conventions live
 in `attachments.ts` and the package entrypoint re-exports both. `MAX_MESSAGE_LENGTH` moved there
 too, so the composer's counter and the socket handler's Zod schema cannot drift.
+
+
+## UI Stage B
+
+**`--color-surface-nav` is a new token, not a reuse of `surface-raised`.** In a chat client the
+nav recedes behind the conversation, but this palette's `raised` is *lighter* than `surface` in
+dark mode (it is what lifts the composer and cards forward). Reusing it would have pushed the
+sidebar toward the viewer instead of away. A fourth surface shade was cheaper and clearer than
+inverting the meaning of an existing one.
+
+**Dark is the default theme, not `system`.** A chat window sits open in the background all day and
+is read on dark far more often than not. `system` is still one click away in settings and still
+tracks OS changes live.
+
+**The unread count keys off the last message id, not array length.** Loading older history
+prepends and therefore also grows `messages.length`, so a length-delta counter would report
+scrollback as unread. Prepending never changes the last element, so comparing that id is what
+separates a genuinely new message from a page of history.
+
+**No message-enter animation.** `react-virtuoso` unmounts and remounts rows as they leave and
+re-enter the viewport, so a CSS enter animation fires again every time an old message scrolls back
+into view - the list appears to twitch while scrolling. Animating only freshly-appended ids would
+work but needs a timer-backed id set for a 160 ms fade. Not worth the state churn, and Discord
+does not animate message entry either.
+
+**The hover toolbar ships with one button.** §1 rules out reactions, replies and threads; edit and
+delete need the `edited_at` / `deleted_at` migration that is deferred; and jump-to-message needs
+the Stage D `around` query. That leaves copy. Building the toolbar now anyway is still worth it -
+the positioning and hover/focus handling are the fiddly part, and Stage D only has to add a button.

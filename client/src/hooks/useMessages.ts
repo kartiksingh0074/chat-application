@@ -22,6 +22,7 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
   const [messages, dispatch] = useReducer(messagesReducer, []);
   const [firstItemIndex, setFirstItemIndex] = useState(START_INDEX);
   const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const pendingTimeouts = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -38,6 +39,7 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     dispatch({ type: 'reset' });
     setFirstItemIndex(START_INDEX);
     setHasMore(true);
+    setLoading(true);
     for (const timeout of pendingTimeouts.current.values()) clearTimeout(timeout);
     pendingTimeouts.current.clear();
   }, [roomId]);
@@ -55,7 +57,8 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
       })
       .catch(() => {
         // History failed to load; live messages via the socket still work.
-      });
+      })
+      .finally(() => setLoading(false));
 
     function handleNew(m: Message) {
       if (m.roomId !== roomId) return;
@@ -144,7 +147,16 @@ export function useMessages(roomId: string | null, currentUserId: string, token:
     pendingTimeouts.current.set(tempId, timeout);
   }
 
-  return { messages, sendMessage, retryMessage, loadOlder, hasMore, loadingOlder, firstItemIndex } as const;
+  return {
+    messages,
+    sendMessage,
+    retryMessage,
+    loadOlder,
+    hasMore,
+    loading,
+    loadingOlder,
+    firstItemIndex,
+  } as const;
 }
 
 export type { DisplayMessage };

@@ -93,14 +93,14 @@ export function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      className="animate-fade-in fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-card border border-border-subtle bg-surface p-5 shadow-xl"
+        className="animate-pop-in w-full max-w-md rounded-card border border-border-subtle bg-surface p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -111,6 +111,45 @@ export function Modal({
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+/** Grey block standing in for content that hasn't arrived yet. */
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <span aria-hidden className={`skeleton block rounded ${className}`} />;
+}
+
+// Uneven widths so the placeholder reads as a list of names rather than a grid.
+const SKELETON_WIDTHS = ['w-28', 'w-20', 'w-32', 'w-24', 'w-16', 'w-28', 'w-20'];
+
+/** Placeholder rows shaped like the conversation list, to avoid a layout jump. */
+export function SidebarSkeleton() {
+  return (
+    <div className="flex flex-col gap-1 px-0.5 py-3" aria-hidden>
+      {SKELETON_WIDTHS.map((width, i) => (
+        <div key={i} className="flex items-center gap-2.5 px-2.5 py-2">
+          <Skeleton className="size-[26px] shrink-0 rounded-lg" />
+          <Skeleton className={`h-3 ${width}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Placeholder rows shaped like the message list. */
+export function MessageListSkeleton() {
+  return (
+    <div className="flex flex-1 flex-col justify-end gap-4 p-4" aria-hidden>
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="flex gap-3">
+          <Skeleton className="size-9 shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

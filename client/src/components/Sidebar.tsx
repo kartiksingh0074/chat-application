@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { roomTitle, type Room } from '../hooks/useRooms.js';
-import { Avatar, Button, EmptyState, Input, Spinner } from '../ui/primitives.js';
+import { useStoredState } from '../hooks/useStoredState.js';
+import { Avatar, Button, EmptyState, Input, SidebarSkeleton } from '../ui/primitives.js';
 
 interface SidebarProps {
   rooms: Room[];
@@ -14,6 +15,41 @@ interface SidebarProps {
   username: string;
   connected: boolean;
   onClose?: () => void;
+}
+
+function Section({
+  label,
+  count,
+  storageKey,
+  children,
+}: {
+  label: string;
+  count: number;
+  storageKey: string;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useStoredState(storageKey, false);
+
+  return (
+    <section className="pt-3">
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        className="group flex w-full items-center gap-1 px-2 pb-1 text-xs font-semibold uppercase
+          tracking-wide text-content-muted transition hover:text-content"
+      >
+        <span
+          aria-hidden
+          className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}
+        >
+          ▾
+        </span>
+        <span className="truncate">{label}</span>
+        <span className="ml-auto tabular-nums opacity-60">{count}</span>
+      </button>
+      {!collapsed && <ul className="flex flex-col gap-0.5">{children}</ul>}
+    </section>
+  );
 }
 
 export function Sidebar({
@@ -46,8 +82,12 @@ export function Sidebar({
             onClose?.();
           }}
           aria-current={active ? 'true' : undefined}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition
-            ${active ? 'bg-brand-subtle font-medium text-brand' : 'text-content-muted hover:bg-surface-sunken hover:text-content'}`}
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition
+            ${
+              active
+                ? 'bg-brand-subtle font-medium text-brand'
+                : 'text-content-muted hover:bg-surface-sunken hover:text-content'
+            }`}
         >
           {room.isDirect ? (
             <Avatar name={title} size={26} />
@@ -63,7 +103,7 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-border-subtle bg-surface-raised">
+    <aside className="flex h-full w-72 flex-col border-r border-border-subtle bg-surface-nav">
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-lg">💬</span>
@@ -95,28 +135,23 @@ export function Sidebar({
 
       <nav className="flex-1 overflow-y-auto px-2 pb-2">
         {loading ? (
-          <div className="flex justify-center py-6 text-content-muted">
-            <Spinner />
-          </div>
+          <SidebarSkeleton />
         ) : visible.length === 0 ? (
-          <EmptyState title="No conversations" hint="Create a room to get started." />
+          <EmptyState
+            title={needle ? 'No matches' : 'No conversations'}
+            hint={needle ? 'Try a different search.' : 'Create a room to get started.'}
+          />
         ) : (
           <>
             {groups.length > 0 && (
-              <>
-                <p className="px-2.5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-content-muted">
-                  Rooms
-                </p>
-                <ul className="flex flex-col gap-0.5">{groups.map(renderRoom)}</ul>
-              </>
+              <Section label="Rooms" count={groups.length} storageKey="chat-sidebar-rooms-collapsed">
+                {groups.map(renderRoom)}
+              </Section>
             )}
             {direct.length > 0 && (
-              <>
-                <p className="px-2.5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-content-muted">
-                  Direct messages
-                </p>
-                <ul className="flex flex-col gap-0.5">{direct.map(renderRoom)}</ul>
-              </>
+              <Section label="Direct messages" count={direct.length} storageKey="chat-sidebar-dms-collapsed">
+                {direct.map(renderRoom)}
+              </Section>
             )}
           </>
         )}
@@ -128,7 +163,7 @@ export function Sidebar({
             <Avatar name={username} size={32} />
             <span
               title={connected ? 'Connected' : 'Reconnecting'}
-              className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-surface-raised
+              className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-surface-nav
                 ${connected ? 'bg-success' : 'bg-warning'}`}
             />
           </div>
