@@ -18,7 +18,10 @@
     "bench:latency": "tsx src/bench/latency.ts",
     "bench:lag": "tsx src/bench/sampleLag.ts",
     "worker": "tsx src/worker/persistWorker.ts",
-    "worker:dev": "tsx watch src/worker/persistWorker.ts"
+    "worker:dev": "tsx watch src/worker/persistWorker.ts",
+    "embed:worker": "tsx src/worker/embedWorker.ts",
+    "embed:worker:dev": "tsx watch src/worker/embedWorker.ts",
+    "rag:backfill": "tsx src/rag/backfillEmbeddings.ts"
   },
   "dependencies": {
     "@chat-application/shared": "*",

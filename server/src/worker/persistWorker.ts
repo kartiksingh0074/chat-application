@@ -1,6 +1,8 @@
 import { Worker } from 'bullmq';
 import { redisConnection } from '../queues/connection.js';
 import { PERSIST_QUEUE_NAME, type PersistMessageJob } from '../queues/persistQueue.js';
+import { embedQueue } from '../queues/embedQueue.js';
+import { isEmbeddable } from '../rag/embeddings.js';
 import { db, pool } from '../db/client.js';
 import { messages } from '../db/schema.js';
 import { logger } from '../logger.js';
@@ -15,6 +17,13 @@ const worker = new Worker<PersistMessageJob>(
       .insert(messages)
       .values({ id, roomId, senderId, body, attachmentKey, createdAt: new Date(createdAt) })
       .onConflictDoNothing();
+
+    // 8.4: the message is enqueued for embedding only after it is durable, and
+    // only from here - the socket handler never touches an embedding API.
+    // Short messages are skipped per 8.3; they carry nothing retrievable.
+    if (isEmbeddable(body)) {
+      await embedQueue.add('embed', { messageId: id, roomId, body });
+    }
   },
   { connection: redisConnection, concurrency: 5 },
 );

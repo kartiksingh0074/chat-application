@@ -292,3 +292,52 @@ labelled questions have no ground truth to point at. Embedding them is not free 
 tokens, which against the free tier's 6,000 TPM is roughly 22 hours of throughput and ~5 days
 against the 1,000 requests/day cap. They stay in place for the phases that need them and are
 excluded from embedding; Phase 8 gets its own generated corpus in separate rooms.
+
+
+## Phase 8, part 1 - schema and retrieval (no API key needed)
+
+**`nomic-embed-text-v1_5` requires task instruction prefixes, and omitting them fails silently.**
+Documents must be embedded as `search_document: <text>` and questions as `search_query: <text>`.
+Getting this wrong does not error - retrieval just gets worse - so it would have quietly biased
+every number in 8.8 with nothing to point at. The prefixes are applied inside
+`rag/embeddings.ts` rather than left to callers, so there is one place to get it right.
+
+**The vector column is 768, not 8.3's 1536.** 1536 is `text-embedding-3-small`'s width; this build
+embeds with Groq's nomic model, which is 768 (Matryoshka-capable down to 64). pgvector fixes the
+width in the column type, so `EMBEDDING_DIMENSIONS` in `db/schema.ts` is the single source and the
+embed client asserts the API's actual width against it on every call - a model swap fails with a
+message naming the fix instead of an opaque insert error.
+
+**drizzle-kit does not emit `CREATE EXTENSION`.** The generated migration declared a
+`vector(768)` column with no extension statement, which fails outright. Added by hand at the top
+of `0002_*.sql`. Worth remembering for any future pgvector migration.
+
+**Live embedding is one message per job; batching lives in the backfill.** 8.4 says the worker
+"batches up to 100 messages per API call", and this deviates deliberately. BullMQ hands a
+processor one job at a time, so batching inside it means either holding jobs open while a batch
+fills - adding latency and risking stalled locks - or acknowledging siblings by hand outside
+BullMQ's lifecycle. (`Worker.getNextJobs` does not exist; only `getNextJob`.) The volume 8.4 is
+actually worried about is backfill: live traffic is human-speed and one call per message sits well
+inside 30 RPM, while backfill is thousands at once and is where the requests-per-day budget is at
+stake. So `backfillEmbeddings.ts` batches at `EMBED_BATCH_SIZE` and the worker does not.
+
+**The backfill refuses to run without explicit `--room` arguments.** There is no "embed
+everything" mode on purpose: the 505k load-test messages are one sentence with a counter, and an
+accidental full run would spend ~8M tokens producing half a million near-identical vectors. Naming
+rooms explicitly makes that impossible to do by accident.
+
+**Keyword ranking is not indexed, and it shows on a large room.** GIN answers `body_tsv @@ query`
+quickly, but `ORDER BY ts_rank(...) LIMIT n` computes the rank for every matching row before
+sorting. Measured on the seeded room: a query matching two messages returns in 46 ms, one matching
+all 505k takes 688 ms, and a query matching nothing takes 1.8 ms. Irrelevant for realistic rooms of
+a few thousand messages, but worth knowing before 8.8's p95 numbers are read - a slow hybrid result
+there would be the keyword arm, not the vector search. If it ever matters, the fix is to bound the
+candidate set in a subquery before ranking.
+
+**8.7 criterion 2 is already covered by an automated test, before the bot exists.**
+`test/ragSecurity.test.ts` runs against the real database and writes its own embeddings directly,
+so it needs no API key. It checks the obvious case - a non-member is refused in all three modes -
+and the subtle one: both a private room and the outsider's own room hold the *identical* vector, so
+if the room filter were missing or applied after the top-k, the private message would rank top in
+the outsider's own search. It does not. That is the leak 8.5 calls non-negotiable, and it is the
+kind of property that cannot be established by reading SQL strings.

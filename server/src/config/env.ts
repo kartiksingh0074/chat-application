@@ -29,6 +29,20 @@ const envSchema = z.object({
   // first does a GetBucketLocation round-trip, which fails from inside a
   // container where MINIO_ENDPOINT (the browser-facing host) isn't routable.
   MINIO_REGION: z.string().default('us-east-1'),
+
+  // --- Phase 8 (RAG) ---
+  // Optional so the app still boots without it: everything except embedding
+  // and generation works, and the keyword arm is fully functional. The bot
+  // routes check for it and fail with a clear message rather than at boot.
+  GROQ_API_KEY: z.string().min(1).optional(),
+  GROQ_BASE_URL: z.string().url().default('https://api.groq.com/openai/v1'),
+  GROQ_CHAT_MODEL: z.string().default('llama-3.3-70b-versatile'),
+  GROQ_EMBED_MODEL: z.string().default('nomic-embed-text-v1_5'),
+  // 8.5 requires all three modes to be implemented and selectable, so 8.8 can
+  // measure each against the same corpus.
+  RETRIEVAL_MODE: z.enum(['keyword', 'vector', 'hybrid']).default('hybrid'),
+  // 8.4: the embed worker batches up to this many messages per API call.
+  EMBED_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(100),
 });
 
 export const env = envSchema.parse(process.env);
