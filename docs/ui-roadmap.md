@@ -1,6 +1,6 @@
 # UI plan — sequenced, with a cutoff before Phase 8
 
-Supersedes the menu-style draft of this file (see `git show 72e8447` for that version).
+Supersedes the menu-style draft of this file (see `git show 12eed70` for that version).
 Nothing below is built unless marked ✅. Effort: **S** = under an hour, **M** = a few hours,
 **L** = a session or more.
 
