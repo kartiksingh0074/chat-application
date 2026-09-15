@@ -26,7 +26,7 @@ function MemberRow({
         aria-label={`View ${member.username}'s profile`}
         className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition
           hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-1
-          focus-visible:outline-brand ${isOnline ? '' : 'opacity-45'}`}
+          focus-visible:outline-brand ${isOnline ? '' : 'opacity-55'}`}
       >
         <span className="relative shrink-0">
           <Avatar name={member.username} size={30} avatarKey={member.avatarKey} />
@@ -56,11 +56,11 @@ export function MemberPanel({ members, online, currentUserId, onOpenProfile }: M
   const offlineMembers = sorted.filter((m) => !online.has(m.id));
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-l border-border-subtle bg-surface-nav">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-l border-border-subtle bg-surface-nav pt-2">
       <div className="overflow-y-auto px-2 py-3">
         {onlineMembers.length > 0 && (
           <>
-            <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-content-muted">
+            <h3 className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-content-muted">
               Online — {onlineMembers.length}
             </h3>
             <ul className="mb-4 flex flex-col gap-0.5">
@@ -79,7 +79,7 @@ export function MemberPanel({ members, online, currentUserId, onOpenProfile }: M
 
         {offlineMembers.length > 0 && (
           <>
-            <h3 className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-content-muted">
+            <h3 className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-content-muted">
               Offline — {offlineMembers.length}
             </h3>
             <ul className="flex flex-col gap-0.5">

@@ -8,7 +8,8 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { MAX_MESSAGE_LENGTH } from '@chat-application/shared';
-import { Button, Spinner } from '../ui/primitives.js';
+import { Spinner } from '../ui/primitives.js';
+import { PaperclipIcon, SendIcon } from '../ui/icons.js';
 
 interface ComposerProps {
   onSend: (body?: string, attachmentKey?: string) => void;
@@ -37,18 +38,19 @@ export function Composer({
 }: ComposerProps) {
   const [draft, setDraft] = useState('');
   const [dragging, setDragging] = useState(false);
+  const [focused, setFocused] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const tooLong = draft.length > MAX_MESSAGE_LENGTH;
   const remaining = MAX_MESSAGE_LENGTH - draft.length;
-  const canSend = draft.trim().length > 0 && !tooLong;
+  const canSend = draft.trim().length > 0 && !tooLong && !disabled && !uploading;
 
   function resize() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }
 
   function submit() {
@@ -64,7 +66,8 @@ export function Composer({
     submit();
   }
 
-  // Enter sends, Shift+Enter makes a new line - the convention people expect.
+  // Enter sends, Shift+Enter makes a new line - the convention people expect,
+  // so it no longer needs spelling out under the box.
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -107,6 +110,11 @@ export function Composer({
     await attachAndSend(file);
   }
 
+  // The line under the box carries whatever matters most right now, so it never
+  // stacks up: who is typing, else a tip about @bot while the box is focused and
+  // empty. The length warning sits on the right when it applies.
+  const showTip = focused && draft.length === 0 && !typingLabel;
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -120,21 +128,24 @@ export function Composer({
         setDragging(false);
       }}
       onDrop={handleDrop}
-      className="relative border-t border-border-subtle bg-surface px-4 py-3"
+      className="relative shrink-0 bg-surface px-3 pb-2 pt-1 sm:px-4"
     >
       {dragging && (
         <div
-          className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-card
-            border-2 border-dashed border-brand bg-brand-subtle/80 text-sm font-medium text-brand"
+          className="pointer-events-none absolute inset-x-3 inset-y-1 z-10 flex items-center justify-center rounded-xl
+            border-2 border-dashed border-brand bg-brand-subtle/90 text-sm font-medium text-brand sm:inset-x-4"
         >
           Drop to upload
         </div>
       )}
 
       <div
-        className={`flex items-end gap-2 rounded-card border bg-surface-raised px-2 py-1.5
-          focus-within:ring-2 focus-within:ring-brand/25
-          ${tooLong ? 'border-danger focus-within:border-danger' : 'border-border-subtle focus-within:border-brand'}`}
+        className={`flex items-end gap-1 rounded-xl border bg-surface-raised p-1.5 transition focus-within:ring-2
+          ${
+            tooLong
+              ? 'border-danger focus-within:ring-danger/20'
+              : 'border-border-subtle focus-within:border-brand/50 focus-within:ring-brand/15'
+          }`}
       >
         <input
           ref={fileInputRef}
@@ -147,9 +158,11 @@ export function Composer({
         <label
           htmlFor="composer-file"
           title="Attach a file"
-          className="cursor-pointer rounded-lg px-2 py-1.5 text-content-muted transition hover:bg-surface-sunken hover:text-content"
+          aria-label="Attach a file"
+          className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[20px]
+            text-content-muted transition hover:bg-surface-sunken hover:text-content"
         >
-          {uploading ? <Spinner /> : '📎'}
+          {uploading ? <Spinner /> : <PaperclipIcon />}
         </label>
 
         <textarea
@@ -164,32 +177,39 @@ export function Composer({
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           disabled={disabled}
           placeholder={placeholder ?? 'Message'}
           aria-label="Message"
           aria-invalid={tooLong || undefined}
-          className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-sm text-content outline-none
-            placeholder:text-content-muted disabled:opacity-50"
+          className="max-h-[200px] min-h-9 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-5
+            text-content outline-none placeholder:text-content-muted disabled:opacity-50"
         />
 
-        <Button type="submit" disabled={disabled || uploading || !canSend} className="px-3 py-1.5">
-          Send
-        </Button>
+        <button
+          type="submit"
+          disabled={!canSend}
+          aria-label="Send message"
+          title="Send"
+          className={`flex size-9 shrink-0 items-center justify-center rounded-lg text-[18px] transition
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand
+            ${canSend ? 'bg-brand text-brand-content shadow-sm hover:bg-brand-hover' : 'text-content-muted/50'}`}
+        >
+          <SendIcon />
+        </button>
       </div>
 
-      <div className="mt-1 flex items-baseline justify-between gap-3 px-1 text-xs">
-        {/* The typing line replaces the hint rather than stacking, so the
-            composer never changes height as people start and stop. */}
+      <div className="flex min-h-5 items-center justify-between gap-3 px-1.5 pt-1 text-xs">
         <p className="min-w-0 truncate text-content-muted" aria-live="polite">
           {typingLabel ? (
-            <span className="text-content">{typingLabel}</span>
-          ) : (
+            <span className="font-medium text-content">{typingLabel}</span>
+          ) : showTip ? (
             <>
-              <kbd className="font-sans">Enter</kbd> to send ·{' '}
-              <kbd className="font-sans">Shift+Enter</kbd> for a new line ·{' '}
-              <kbd className="font-sans">@bot</kbd> to ask about this room
+              Start with <span className="font-semibold text-brand">@bot</span> to ask about this
+              room&rsquo;s history
             </>
-          )}
+          ) : null}
         </p>
         {draft.length >= COUNTER_VISIBLE_FROM && (
           <p

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { ilike, ne, and, eq } from 'drizzle-orm';
+import { and, eq, ilike, notInArray } from 'drizzle-orm';
+import { BOT_USER_ID } from '@chat-application/shared';
 import { db } from '../db/client.js';
 import { users } from '../db/schema.js';
 import { requireAuth, type AuthedRequest } from '../auth/middleware.js';
+import { onlineUserIds } from '../presence/presence.js';
 
 export const usersRouter = Router();
 
@@ -14,7 +16,7 @@ const searchSchema = z.object({
 
 // Used to pick people when creating a room or starting a DM, and by the
 // "Find people" surface. Excludes the caller, since neither flow can target
-// yourself.
+// yourself, and the bot, which is addressed with @bot rather than messaged.
 usersRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
   const parsed = searchSchema.safeParse(req.query);
   if (!parsed.success) {
@@ -28,12 +30,13 @@ usersRouter.get('/', requireAuth, async (req: AuthedRequest, res) => {
     .from(users)
     .where(
       q.length > 0
-        ? and(ne(users.id, req.userId!), ilike(users.username, `%${q}%`))
-        : ne(users.id, req.userId!),
+        ? and(notInArray(users.id, [req.userId!, BOT_USER_ID]), ilike(users.username, `%${q}%`))
+        : notInArray(users.id, [req.userId!, BOT_USER_ID]),
     )
     .limit(limit);
 
-  res.json({ users: results });
+  const online = await onlineUserIds(results.map((u) => u.id));
+  res.json({ users: results.map((u) => ({ ...u, online: online.has(u.id) })) });
 });
 
 const updateMeSchema = z.object({

@@ -1,5 +1,6 @@
 import { attachmentDisplayName, isImageAttachment } from '@chat-application/shared';
 import { attachmentUrl } from '../config.js';
+import { FileIcon } from '../ui/icons.js';
 
 interface AttachmentProps {
   attachmentKey: string;
@@ -46,14 +47,13 @@ export function Attachment({ attachmentKey, onOpenImage }: AttachmentProps) {
     >
       <span
         aria-hidden
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken
-          text-[10px] font-semibold tracking-wide text-content-muted"
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand/12 text-[22px] text-brand"
       >
-        {extension.slice(0, 4) || 'FILE'}
+        <FileIcon />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium text-content">{name}</span>
-        <span className="block text-xs text-content-muted">Download</span>
+        <span className="block text-xs text-content-muted">{extension.slice(0, 5) || 'File'} · Download</span>
       </span>
     </a>
   );

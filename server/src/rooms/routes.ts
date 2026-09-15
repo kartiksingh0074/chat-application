@@ -5,6 +5,7 @@ import { ulid } from 'ulidx';
 import { db } from '../db/client.js';
 import { roomMembers, rooms, users } from '../db/schema.js';
 import { requireAuth, type AuthedRequest } from '../auth/middleware.js';
+import { onlineUserIds } from '../presence/presence.js';
 import {
   buildMessagesAfterQuery,
   buildMessagesPageQuery,
@@ -134,7 +135,8 @@ roomsRouter.get('/:id/members', requireAuth, async (req: AuthedRequest, res) => 
     .innerJoin(users, eq(roomMembers.userId, users.id))
     .where(eq(roomMembers.roomId, roomId));
 
-  res.json({ members });
+  const online = await onlineUserIds(members.map((m) => m.id));
+  res.json({ members: members.map((m) => ({ ...m, online: online.has(m.id) })) });
 });
 
 const createRoomSchema = z.object({

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthProvider.js';
 import { Button, Field, Input, Spinner } from '../ui/primitives.js';
+import { LogoIcon } from '../ui/icons.js';
 
 type Mode = 'signin' | 'signup';
 
@@ -44,13 +45,18 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-surface-sunken p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-card bg-brand text-2xl">
-            💬
+    <div className="relative flex min-h-full items-center justify-center overflow-hidden bg-surface-nav p-4">
+      {/* A soft glow behind the card, so the page is not a flat grey field. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[18%] size-[36rem] -translate-x-1/2 rounded-full bg-brand/15 blur-3xl"
+      />
+      <div className="relative w-full max-w-sm">
+        <div className="mb-7 text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-brand text-[28px] text-brand-content shadow-lg shadow-brand/30">
+            <LogoIcon strokeWidth={2} />
           </div>
-          <h1 className="text-xl font-semibold text-content">
+          <h1 className="text-2xl font-semibold tracking-tight text-content">
             {isSignup ? 'Create your account' : 'Welcome back'}
           </h1>
           <p className="mt-1 text-sm text-content-muted">
@@ -60,7 +66,7 @@ export function AuthPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-card border border-border-subtle bg-surface p-6 shadow-sm"
+          className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface p-6 shadow-xl shadow-black/5"
         >
           <Field label="Username" htmlFor="username">
             <Input
@@ -106,7 +112,7 @@ export function AuthPage() {
             </p>
           )}
 
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} className="mt-1 h-10">
             {busy && <Spinner />}
             {isSignup ? 'Create account' : 'Sign in'}
           </Button>

@@ -38,6 +38,8 @@ export function ChatPage() {
     openDirectMessage,
   } = useRooms(token!);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  // Per account, so two people sharing a browser each land in their own room.
+  const [lastRoomId, setLastRoomId] = useStoredState<string | null>(`chat-last-room:${user!.id}`, null);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -63,9 +65,13 @@ export function ChatPage() {
   } = useMessages(activeRoomId, user!.id, token!);
   const { members, nameFor, avatarFor } = useMembers(token!, activeRoomId);
   const { upload, uploading, error: uploadError } = useUpload(token!, activeRoomId);
-  const online = usePresence();
+  const { online, seed: seedPresence } = usePresence();
   const { typists, notifyTyping, stopTyping } = useTyping(activeRoomId);
   const { streams, dismiss, citationsFor } = useBotStreams(activeRoomId);
+
+  useEffect(() => {
+    seedPresence(members);
+  }, [members, seedPresence]);
 
   const activeRoom = view === 'chat' ? (rooms.find((r) => r.id === activeRoomId) ?? null) : null;
 
@@ -79,10 +85,18 @@ export function ChatPage() {
     }
   }
 
-  // Auto-select the first conversation so the app never opens on a blank pane.
+  // Open where the person left off, falling back to the first conversation so
+  // the app never opens on a blank pane. The first room used to be the default,
+  // which dropped everyone into #general's load-test messages.
   useEffect(() => {
-    if (!activeRoomId && rooms.length > 0) setActiveRoomId(rooms[0]!.id);
-  }, [rooms, activeRoomId]);
+    if (activeRoomId || rooms.length === 0) return;
+    const remembered = lastRoomId && rooms.some((r) => r.id === lastRoomId) ? lastRoomId : null;
+    setActiveRoomId(remembered ?? rooms[0]!.id);
+  }, [rooms, activeRoomId, lastRoomId]);
+
+  useEffect(() => {
+    if (activeRoomId) setLastRoomId(activeRoomId);
+  }, [activeRoomId, setLastRoomId]);
 
   useEffect(() => {
     if (roomsError) notify(roomsError);
@@ -129,6 +143,7 @@ export function ChatPage() {
           rooms={rooms}
           loading={roomsLoading}
           activeRoomId={view === 'chat' ? activeRoomId : null}
+          online={online}
           onSelect={(id) => {
             setActiveRoomId(id);
             setView('chat');
@@ -158,6 +173,7 @@ export function ChatPage() {
               onMessage={openConversation}
               onOpenProfile={(userId, anchor) => setProfile({ userId, anchor })}
               onOpenSidebar={() => setSidebarOpen(true)}
+              onPresence={seedPresence}
             />
           ) : roomsLoading ? (
             <div className="flex flex-1 items-center justify-center text-content-muted">

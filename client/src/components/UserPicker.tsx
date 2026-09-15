@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useUsers, type DirectoryUser } from '../hooks/useUsers.js';
 import { Avatar, EmptyState, Input, Spinner } from '../ui/primitives.js';
+import { CheckIcon, CloseIcon } from '../ui/icons.js';
 
 interface UserPickerProps {
   token: string;
@@ -31,7 +32,7 @@ export function UserPicker({ token, selected, onToggle, multiple = true }: UserP
               onClick={() => onToggle(u)}
               className="flex items-center gap-1 rounded-full bg-brand-subtle px-2 py-1 text-xs font-medium text-brand"
             >
-              {u.username} <span aria-hidden>✕</span>
+              {u.username} <CloseIcon size={12} strokeWidth={2.25} />
             </button>
           ))}
         </div>
@@ -57,7 +58,7 @@ export function UserPicker({ token, selected, onToggle, multiple = true }: UserP
                   >
                     <Avatar name={u.username} size={28} avatarKey={u.avatarKey} />
                     <span className="flex-1 truncate">{u.username}</span>
-                    {isSelected && <span aria-hidden>✓</span>}
+                    {isSelected && <CheckIcon size={16} strokeWidth={2.25} />}
                   </button>
                 </li>
               );

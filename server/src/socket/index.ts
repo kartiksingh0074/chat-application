@@ -7,7 +7,7 @@ import { allowedOrigins, env } from '../config/env.js';
 import { verifyToken } from '../auth/jwt.js';
 import { logger } from '../logger.js';
 import { registerHandlers } from './handlers.js';
-import { markOnline, markOffline } from '../presence/presence.js';
+import { clearStalePresence, markOnline, markOffline } from '../presence/presence.js';
 import { activeSockets, wsReconnectionsTotal } from '../metrics/metrics.js';
 import { subscribeToRelay } from '../bot/relay.js';
 
@@ -69,6 +69,12 @@ export function createSocketServer(httpServer: HttpServer) {
     }
   });
 
+  // Before accepting sockets: forget connections a previous run of this node
+  // held but never got to disconnect (a crash, a deploy). The Redis command is
+  // issued synchronously here, ahead of any connection's own presence writes,
+  // so fresh sockets are never swept up with the stale ones.
+  clearStalePresence(io).catch((err) => logger.error({ err }, 'could not clear stale presence'));
+
   io.on('connection', (socket) => {
     logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket connected');
     activeSockets.inc();
@@ -76,12 +82,12 @@ export function createSocketServer(httpServer: HttpServer) {
       wsReconnectionsTotal.inc();
     }
     registerHandlers(socket);
-    void markOnline(io, socket.data.userId);
+    void markOnline(io, socket.data.userId, socket.id);
 
     socket.on('disconnect', () => {
       logger.info({ userId: socket.data.userId, socketId: socket.id }, 'socket disconnected');
       activeSockets.dec();
-      void markOffline(io, socket.data.userId);
+      void markOffline(io, socket.data.userId, socket.id);
     });
   });
 

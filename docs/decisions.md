@@ -477,3 +477,59 @@ browser. It now lists columns explicitly, with a test. And the first live answer
 its timestamps were strings ("2026-09-15 18:50:32.506+00") despite being typed as `Date`. Nothing
 had read that field until the prompt formatted it. The query now asks Postgres for ISO-8601, and a
 test checks every retrieval mode returns real Dates.
+
+
+## UI refresh, and three bugs the screenshots exposed
+
+Screenshots of the running app were taken with headless Chrome over the DevTools protocol, before
+and after, rather than judging the UI from its code.
+
+**Presence is a set of connections, not a counter.** The member panel showed everyone offline,
+including the viewer: presence was only pushed as changes, so nobody who was already online when a
+page loaded ever appeared. Member lists and people search now carry a presence snapshot. That fix
+exposed a worse bug underneath: presence was a counter, incremented on connect and decremented on
+disconnect, and a node that dies never runs its disconnects. After one rebuild a single browser tab
+counted as 2, so closing it would have left the user online forever - hidden until now only because
+nobody showed as online at all. Presence is now `online:<userId>`, a set of `<nodeId>|<socketId>`,
+plus a per-node index; a starting node renames its index away atomically and removes what its
+previous run held. Verified live: a SIGKILLed node left a stale entry, its restart cleared it, and
+closing the tab took the user offline. Limit: a node that never starts again leaves its entries
+until one with the same NODE_ID does.
+
+**Citations accept `【n】` as well as `[n]`.** `gpt-oss` wrote `【1】` in a live answer despite a
+`[2]` example in the prompt, and that answer saved no citations - the parser read only ASCII
+brackets. It now reads the full-width form, including the `【1†source】` locator variant, and the
+prompt asks for ASCII explicitly. The earlier check that "all 4 saved citations are valid" could
+not see this, because it only examined citations that had been saved.
+
+**The bot is excluded from people search.** It appeared in Find people with a Message button; it
+is addressed with @bot, not messaged.
+
+**Icons are hand-drawn SVGs, not `lucide-react`.** Emoji rendered at inconsistent sizes and weights,
+and the envelope rendered as a blank rectangle on Windows. A package would be the usual answer, but
+it is a dependency PROJECT.md 2 does not list and the choice was not confirmed, so ~20 icons were
+drawn on one 24-unit grid with a shared stroke instead. Swapping to a package later only means
+replacing `ui/icons.tsx`.
+
+**Inter is self-hosted, not loaded from Google Fonts.** One variable WOFF2 (344 KB) in
+`client/public/fonts`, with its SIL Open Font License beside it. No package and no third-party
+request at runtime. `cv05` and `cv08` are switched on so l, I and 1 are distinct in ids like
+`PLAT-2208`. Message text went from 14px to 15px.
+
+**Loud controls were quietened.** The Members toggle was a filled brand-colour button, the most
+prominent thing on screen; it is now an icon button. The `danger` variant is text-coloured rather
+than a solid red block. Send is muted until there is something to send. The composer's
+"Enter to send / Shift+Enter" line is gone; its space shows who is typing, or an @bot tip while the
+box is focused and empty.
+
+**Settings no longer reads like a debug panel.** The raw user id, API URL and transport type are
+gone; it is Profile, Appearance and Account.
+
+**The app reopens the last room, per account.** It used to open the first room, which dropped
+everyone into `#general`'s load-test messages.
+
+**Two layout traps worth remembering.** Message rows use padding, not `margin-top`: inside a
+virtualised item a child's top margin can collapse through its wrapper, so Virtuoso would measure
+every row short and the list would jump while scrolling. And a responsive "hide below xl" on
+`IconButton` has to be `max-xl:hidden`, not `hidden xl:inline-flex`: the button's own `inline-flex`
+is a plain utility that outranks a plain `hidden`, which left two Members buttons on mobile.

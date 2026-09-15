@@ -1,13 +1,16 @@
 import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
 import { attachmentUrl } from '../config.js';
+import { CloseIcon } from './icons.js';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-brand text-brand-content hover:bg-brand-hover',
+  primary: 'bg-brand text-brand-content shadow-sm hover:bg-brand-hover',
   secondary: 'bg-surface-sunken text-content hover:bg-border-subtle',
   ghost: 'text-content-muted hover:bg-surface-sunken hover:text-content',
-  danger: 'bg-danger text-white hover:opacity-90',
+  // Quiet by default: destructive actions should be findable, not the loudest
+  // thing on the screen.
+  danger: 'text-danger hover:bg-danger/10',
 };
 
 export function Button({
@@ -22,6 +25,34 @@ export function Button({
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand
         disabled:cursor-not-allowed disabled:opacity-50 ${BUTTON_VARIANTS[variant]} ${className}`}
     />
+  );
+}
+
+/**
+ * A square, icon-only button. `label` is required: it is both the accessible
+ * name and the hover tooltip, since there is no visible text to fall back on.
+ */
+export function IconButton({
+  label,
+  active = false,
+  className = '',
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      {...props}
+      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[18px] transition
+        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand
+        disabled:cursor-not-allowed disabled:opacity-40
+        ${active ? 'bg-surface-sunken text-content' : 'text-content-muted hover:bg-surface-sunken hover:text-content'}
+        ${className}`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -120,21 +151,21 @@ export function Modal({
 }) {
   return (
     <div
-      className="animate-fade-in fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      className="animate-fade-in fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label={title}
       onClick={onClose}
     >
       <div
-        className="animate-pop-in w-full max-w-md rounded-card border border-border-subtle bg-surface p-5 shadow-xl"
+        className="animate-pop-in w-full max-w-md rounded-2xl border border-border-subtle bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-content">{title}</h2>
-          <Button variant="ghost" onClick={onClose} aria-label="Close dialog" className="px-2 py-1">
-            ✕
-          </Button>
+          <h2 className="text-lg font-semibold tracking-tight text-content">{title}</h2>
+          <IconButton label="Close" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
         </div>
         {children}
       </div>

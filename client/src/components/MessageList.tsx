@@ -4,6 +4,7 @@ import type { DisplayMessage } from '../hooks/useMessages.js';
 import { Avatar } from '../ui/primitives.js';
 import { Linkified } from '../ui/linkify.js';
 import { useToast } from '../ui/ToastProvider.js';
+import { ArrowDownIcon, CopyIcon, SparkleIcon } from '../ui/icons.js';
 import { Attachment } from './Attachment.js';
 import { CitationChips } from './BotAnswer.js';
 
@@ -31,8 +32,13 @@ interface MessageListProps {
   onOpenImage: (url: string) => void;
 }
 
-const dayFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
-const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+// 'numeric', not '2-digit': "4:02 PM" rather than "04:02 PM".
+const timeFormatter = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+
+// Defined once, outside the component: an inline object here would hand
+// Virtuoso a new Footer type on every render and remount it each time.
+const LIST_COMPONENTS = { Footer: () => <div className="h-3" /> };
 
 function dayKey(iso: string) {
   return new Date(iso).toDateString();
@@ -131,6 +137,7 @@ export function MessageList({
         atBottomStateChange={setAtBottom}
         atBottomThreshold={80}
         computeItemKey={(_, m) => m.tempId ?? m.id}
+        components={LIST_COMPONENTS}
         itemContent={(index, m) => {
           const arrayIndex = index - firstItemIndex;
           const prior = arrayIndex > 0 ? messages[arrayIndex - 1] : undefined;
@@ -143,13 +150,14 @@ export function MessageList({
           // covers the moment between a stream finishing and the save landing.
           const citations = isBot ? (m.citations?.length ? m.citations : citationsFor(m.id)) : [];
           const highlighted = m.id === highlightId;
+          const time = timeFormatter.format(new Date(m.createdAt));
 
           return (
             <div>
               {newDay && (
-                <div className="flex items-center gap-3 px-4 py-3">
+                <div className="flex items-center gap-3 px-4 pb-1 pt-5">
                   <span className="h-px flex-1 bg-border-subtle" />
-                  <span className="text-xs font-medium text-content-muted">
+                  <span className="text-[11px] font-semibold text-content-muted">
                     {dayFormatter.format(new Date(m.createdAt))}
                   </span>
                   <span className="h-px flex-1 bg-border-subtle" />
@@ -157,38 +165,35 @@ export function MessageList({
               )}
 
               <div
-                className={`group relative flex gap-3 px-4 transition-colors
-                  ${grouped ? 'py-0.5' : 'pb-0.5 pt-2'}
-                  ${isBot ? 'border-l-2 border-brand bg-brand-subtle/20' : ''}
-                  ${
-                    highlighted
-                      ? 'bg-warning/25'
-                      : isBot
-                        ? 'hover:bg-brand-subtle/30'
-                        : 'hover:bg-surface-sunken/60'
-                  }`}
+                className={`group relative flex gap-3.5 px-4 transition-colors
+                  ${grouped ? 'py-px' : 'pb-px pt-3.5'}
+                  ${highlighted ? 'bg-warning/15' : 'hover:bg-content/[0.035]'}`}
               >
-                <div className="w-9 shrink-0">
-                  {!grouped && isBot && (
+                <div className="w-10 shrink-0">
+                  {grouped ? (
+                    // Grouped lines have no header, so their time appears on hover.
+                    <time
+                      dateTime={m.createdAt}
+                      className="invisible block pt-[3px] text-right text-[10.5px] leading-5 text-content-muted
+                        tabular-nums group-hover:visible"
+                    >
+                      {time}
+                    </time>
+                  ) : isBot ? (
                     <span
                       aria-hidden
-                      className="flex size-9 items-center justify-center rounded-full bg-brand text-brand-content"
+                      className="flex size-10 items-center justify-center rounded-full bg-brand text-[20px] text-brand-content"
                     >
-                      ✦
+                      <SparkleIcon />
                     </span>
-                  )}
-                  {!grouped && !isBot && (
+                  ) : (
                     <button
                       onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
                       aria-label={`View ${name === 'You' ? 'your' : `${name}'s`} profile`}
-                      className="rounded-full transition hover:opacity-80 focus-visible:outline-2
+                      className="mt-0.5 rounded-full transition hover:opacity-85 focus-visible:outline-2
                         focus-visible:outline-offset-2 focus-visible:outline-brand"
                     >
-                      <Avatar
-                        name={name === 'You' ? 'me' : name}
-                        size={36}
-                        avatarKey={avatarFor(m.senderId)}
-                      />
+                      <Avatar name={name === 'You' ? 'me' : name} size={40} avatarKey={avatarFor(m.senderId)} />
                     </button>
                   )}
                 </div>
@@ -196,20 +201,17 @@ export function MessageList({
                 <div className="min-w-0 flex-1">
                   {!grouped && (
                     <div className="flex items-baseline gap-2">
-                      {isBot && (
-                        <span className="text-sm font-semibold text-brand">
+                      {isBot ? (
+                        <span className="flex items-center gap-1.5 text-[15px] font-semibold text-brand">
                           Bot
-                          <span className="ml-1.5 rounded bg-brand px-1 py-px text-[10px] font-bold uppercase text-brand-content">
-                            app
+                          <span className="rounded bg-brand/15 px-1 py-px text-[10px] font-bold uppercase tracking-wide text-brand">
+                            App
                           </span>
                         </span>
-                      )}
-                      {!isBot && (
+                      ) : (
                         <button
-                          onClick={(e) =>
-                            onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())
-                          }
-                          className="text-sm font-semibold text-content hover:underline
+                          onClick={(e) => onOpenProfile(m.senderId, e.currentTarget.getBoundingClientRect())}
+                          className="text-[15px] font-semibold text-content hover:underline
                             focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
                         >
                           {name}
@@ -220,14 +222,14 @@ export function MessageList({
                         className="text-xs text-content-muted"
                         title={new Date(m.createdAt).toLocaleString()}
                       >
-                        {timeFormatter.format(new Date(m.createdAt))}
+                        {time}
                       </time>
                     </div>
                   )}
 
                   {m.body && (
                     <p
-                      className={`whitespace-pre-wrap break-words text-sm text-content
+                      className={`whitespace-pre-wrap break-words text-[15px] leading-[1.45] text-content
                         ${m.status === 'pending' ? 'opacity-50' : ''}`}
                     >
                       <Linkified text={m.body} />
@@ -254,23 +256,21 @@ export function MessageList({
                 </div>
 
                 {/* Reactions, replies and threads are out of scope per PROJECT.md
-                    section 1, so this stays a single action until Stage D adds
-                    the jump-to-message link. */}
+                    section 1, so the toolbar holds copy only. */}
                 {m.body && (
                   <div
-                    className="absolute right-4 top-0 hidden -translate-y-1/2 rounded-lg border
-                      border-border-subtle bg-surface-raised p-0.5 shadow-sm group-hover:flex
-                      group-focus-within:flex"
+                    className="absolute -top-3 right-4 hidden rounded-lg border border-border-subtle bg-surface-raised
+                      p-0.5 shadow-md group-hover:flex group-focus-within:flex"
                   >
                     <button
                       onClick={() => copyMessage(m.body!)}
                       title="Copy text"
                       aria-label="Copy message text"
-                      className="rounded px-2 py-1 text-xs text-content-muted transition
-                        hover:bg-surface-sunken hover:text-content
+                      className="flex size-7 items-center justify-center rounded-md text-[15px] text-content-muted
+                        transition hover:bg-surface-sunken hover:text-content
                         focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand"
                     >
-                      ⧉
+                      <CopyIcon />
                     </button>
                   </div>
                 )}
@@ -283,19 +283,18 @@ export function MessageList({
       {!atBottom && (
         <button
           onClick={jumpToBottom}
-          className="animate-pop-in absolute bottom-4 right-6 z-10 flex items-center gap-2 rounded-full
-            border border-border-subtle bg-surface-raised py-2 pl-3 pr-3 text-xs font-medium text-content
+          className="animate-pop-in absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2
+            rounded-full border border-border-subtle bg-surface-raised px-3.5 py-1.5 text-xs font-medium text-content
             shadow-lg transition hover:bg-surface-sunken
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {missed > 0 && (
-            <span className="rounded-full bg-brand px-1.5 py-0.5 text-brand-content tabular-nums">
-              {missed > 99 ? '99+' : missed} new
+            <span className="rounded-full bg-brand px-1.5 py-px text-[11px] text-brand-content tabular-nums">
+              {missed > 99 ? '99+' : missed}
             </span>
           )}
-          {hasMoreNewer && <span>Jump to present</span>}
-          <span aria-hidden>↓</span>
-          <span className="sr-only">Jump to the newest message</span>
+          <span>{missed > 0 ? 'New messages' : hasMoreNewer ? 'Jump to present' : 'Latest'}</span>
+          <ArrowDownIcon size={14} strokeWidth={2.25} />
         </button>
       )}
     </div>

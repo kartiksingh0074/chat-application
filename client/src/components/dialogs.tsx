@@ -3,6 +3,7 @@ import type { DirectoryUser } from '../hooks/useUsers.js';
 import type { Member } from '../hooks/useMembers.js';
 import { UserPicker } from './UserPicker.js';
 import { Avatar, Button, Field, Input, Modal, Spinner } from '../ui/primitives.js';
+import { CloseIcon } from '../ui/icons.js';
 
 export function NewRoomDialog({
   token,
@@ -146,9 +147,10 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
       <button
         onClick={onClose}
         aria-label="Close preview"
-        className="absolute right-4 top-4 rounded-lg bg-white/10 px-3 py-1.5 text-white transition hover:bg-white/20"
+        className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-white/10 text-[20px]
+          text-white transition hover:bg-white/20"
       >
-        ✕
+        <CloseIcon />
       </button>
     </div>
   );

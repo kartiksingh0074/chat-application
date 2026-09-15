@@ -5,6 +5,7 @@ export interface DirectoryUser {
   id: string;
   username: string;
   avatarKey?: string | null;
+  online?: boolean;
 }
 
 /** Debounced user search, for picking people to add to a room or DM. */

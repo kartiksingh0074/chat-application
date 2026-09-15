@@ -107,6 +107,17 @@ describe('extractCitations', () => {
     expect(out.text).toBe("I couldn't find that in this room's history.");
   });
 
+  it('reads the full-width markers gpt-oss falls back to', () => {
+    // Taken from a live answer, which was saved with no citations before this.
+    const live = extractCitations('had repository‑wide scope【1】.', ids);
+    expect(live.citations).toEqual(['m1']);
+    expect(live.text).toBe('had repository‑wide scope[1].');
+
+    const located = extractCitations('Tuesday 【3†source】 and [5].', ids);
+    expect(located.citations).toEqual(['m3', 'm5']);
+    expect(located.text).toBe('Tuesday [1] and [2].');
+  });
+
   it('leaves ordinary bracketed text alone', () => {
     const out = extractCitations('The [staging] env is fine [1].', ids);
     expect(out.text).toBe('The [staging] env is fine [1].');

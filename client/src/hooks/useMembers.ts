@@ -6,6 +6,8 @@ export interface Member {
   username: string;
   avatarKey?: string | null;
   joinedAt: string;
+  /** Online when the list was fetched; live presence events take over after. */
+  online?: boolean;
 }
 
 /**

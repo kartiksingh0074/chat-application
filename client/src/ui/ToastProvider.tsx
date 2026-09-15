@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { CloseIcon } from './icons.js';
 
 type ToastKind = 'error' | 'success' | 'info';
 
@@ -46,15 +47,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className={`pointer-events-auto flex items-start gap-2 rounded-card border px-3 py-2 text-sm shadow-lg ${KIND_STYLES[t.kind]}`}
+            className={`animate-pop-in pointer-events-auto flex items-start gap-2 rounded-xl border px-3.5 py-2.5 text-sm shadow-lg backdrop-blur ${KIND_STYLES[t.kind]}`}
           >
             <span className="flex-1">{t.message}</span>
             <button
               onClick={() => dismiss(t.id)}
               aria-label="Dismiss notification"
-              className="opacity-60 transition hover:opacity-100"
+              className="mt-0.5 opacity-60 transition hover:opacity-100"
             >
-              ✕
+              <CloseIcon size={14} />
             </button>
           </div>
         ))}
