@@ -190,6 +190,177 @@ and measured. The insert-throughput benefit is not, at this scale.
 
 ---
 
+## Experiment 5 — RAG retrieval: keyword vs vector vs hybrid (§8.8)
+
+§8.8 asks for recall@10, MRR and p95 latency across three retrieval modes over a labelled
+question set, plus embedding cost and index size, and predicts that hybrid beats both arms,
+keyword wins on exact names and IDs, and vector wins on paraphrase.
+
+### Setup
+
+| | |
+|---|---|
+| Corpus | 4 rooms (`eng-platform`, `incidents`, `product`, `team`), **4,070 messages**: 4,000 templated filler, 32 planted answers, 38 hand-written near misses |
+| Embedded | 3,336 — the other 734 are under 15 characters ("ok", "lgtm") and skipped per §8.3 |
+| Questions | **30**: 10 *identifier*, 12 *paraphrase*, 8 *lexical* |
+| Relevance | Strict — only planted answers count, so every score is a lower bound |
+| Embedding model | `bge-small-en-v1.5`, fp32, run locally on CPU via transformers.js; query-side prefix only |
+| Retrieval | 50 candidates per arm, RRF with k = 60, top_k = 10; each question asked in its answer's room, as a member |
+| Timing | One warm pass, then 5 repetitions × 30 questions = 150 samples per mode |
+| Machine | AMD Ryzen 7 170, 16 logical cores, 15 GB; Node 24 native on Windows, Postgres in Docker (WSL2) |
+
+**The categories are checked mechanically, not by eye.** `test/ragCorpus.test.ts` intersects
+each question with its answer using `to_tsvector('english', …)` — the same tokeniser the keyword
+arm uses — and fails unless every paraphrase question shares **zero** stemmed words with its
+answer, and every identifier and lexical question shares at least one. The same test fails if
+generated filler contains any term that anchors a planted answer, so filler cannot become an
+unlabelled correct answer.
+
+Latency is measured for `retrieve()` as the bot calls it, so it includes the membership check
+(§8.5) and the hop from Windows into WSL2. *End-to-end* adds embedding the question.
+
+### Results — the three modes §8.8 asks for
+
+| Mode | recall@10 | MRR | p95 retrieval | p95 incl. query embedding |
+|---|---|---|---|---|
+| Keyword | 26.7% (8 of 30) | 0.267 | 2.2 ms | 2.2 ms |
+| Vector | 61.7% (18.5 of 30) | 0.633 | 6.8 ms | 13.8 ms |
+| Hybrid (RRF) | 61.7% (18.5 of 30) | 0.633 | 7.1 ms | 14.1 ms |
+
+Question counts are recall × 30. Halves come from the two questions with two correct answers,
+where finding one scores 0.5. **One question is 3.3 percentage points** — keep that in mind
+reading every gap below.
+
+### By question type
+
+| Mode | identifier (10) R@10 / MRR | paraphrase (12) R@10 / MRR | lexical (8) R@10 / MRR |
+|---|---|---|---|
+| Keyword | 30.0% / 0.300 | 0.0% / 0.000 | 62.5% / 0.625 |
+| Vector | 70.0% / 0.700 | 29.2% / 0.333 | 100.0% / 1.000 |
+| Hybrid | 70.0% / 0.700 | 29.2% / 0.333 | 100.0% / 1.000 |
+
+### Diagnostics — separating the model from the choices around it
+
+| Variant | recall@10 | MRR | p95 retrieval | What it isolates |
+|---|---|---|---|---|
+| Keyword, **any** word (OR) | 53.3% (16) | 0.483 | 2.1 ms | §8.5's `plainto_tsquery` requires *every* word |
+| Hybrid, any-word keyword | 58.3% (17.5) | 0.557 | 7.4 ms | Hybrid once the keyword arm returns something |
+| Hybrid, any-word, 20 per arm | 61.7% (18.5) | 0.590 | 6.4 ms | Fusion depth |
+| Hybrid, any-word, 10 per arm | **65.0% (19.5)** | 0.617 | 6.0 ms | Fusion depth |
+| Vector, §8.5 index use as written | 61.7% (18.5) | 0.633 | 4.6 ms | Filtered HNSW without iterative scan |
+| Vector, exact search | 61.7% (18.5) | 0.633 | 14.0 ms | Upper bound: no index approximation |
+
+The two fusion-depth rows were added **after** seeing the 50-candidate result, and are scored
+on the same 30 questions. They demonstrate a mechanism; they are not a tuned setting, and the
+default was not changed because of them.
+
+| Variant | identifier R@10 / MRR | paraphrase R@10 / MRR | lexical R@10 / MRR |
+|---|---|---|---|
+| Keyword, any word | **80.0%** / 0.700 | 0.0% / 0.000 | 100.0% / 0.938 |
+| Hybrid, any-word keyword | 70.0% / 0.700 | 20.8% / 0.183 | 100.0% / 0.938 |
+| Hybrid, any-word, 10 per arm | **80.0%** / 0.717 | 29.2% / 0.278 | 100.0% / 1.000 |
+
+### Cost and size
+
+| | |
+|---|---|
+| Embedding throughput | **2,635 ms per 1,000 messages** (380 messages/s), batches of 32, CPU only |
+| Embedding cost | **$0** — local model, no API; no GPU |
+| Model | ~130 MB download once (43 s); later loads ~0.5 s; embedding process ~272 MB RSS |
+| HNSW index | 3.94 MB for 3,336 vectors — **1.18 MB per 1,000 messages** |
+| `message_embeddings` table | 6.85 MB — 2.05 MB per 1,000 |
+| `room_id` b-tree | 56 KB |
+| GIN (`body_tsv`) | 31.4 MB — covers every message in the database, the 505k load-test rows included, so not comparable per embedding |
+
+### The predictions against the numbers
+
+**"Keyword wins on exact names and IDs" — refuted as specified; partly confirmed with OR matching.**
+With §8.5's `plainto_tsquery`, keyword search found 3 of 10 identifier answers against vector's 7.
+The cause is not keyword search as such but AND semantics: a natural question carries words its
+answer never uses, so "What was the root cause of INC-4471?" matches nothing because the answer
+never says "root". Keyword returned **no results at all for 22 of 30 questions**. Joining the same
+stemmed terms with OR instead lifts identifier recall to **80%** — above vector's 70% — while MRR
+ties at 0.700. The clearest case is `I04`, "Is PLAT-2208 fixed yet?": OR-keyword ranks the answer
+first, and vector search does not place it in the top 10. Embeddings do not separate one ticket
+number from another; for `I01` the three nearest neighbours were all templated lines like
+"INC-4493 resolved, root cause was a bad config push to reports".
+
+**"Vector wins on paraphrase" — confirmed, with a low ceiling.** Keyword scores 0% here by
+construction, since these questions share no words with their answers. Vector search found 4 of
+12 — each time at rank 1, with nothing shared (`P04`, `P05`, `P07`, `P12`). That is the retrieval
+half of §8.7 criterion 1. The other 8 were not in the top 10: "What time did we agree to ship to
+production?" pulled in messages about times of day ("moved the exporter report job to run at
+10am") ahead of "we push to prod tuesday night around 11pm".
+
+**"Hybrid beats both" — not supported as specified.** Hybrid was identical to vector on every
+question, because the AND-matching keyword arm was empty for 22 of 30 and had nothing to add.
+Given an OR keyword arm and the specified 50 candidates per arm, hybrid got **worse** than vector
+alone (58.3% vs 61.7%), and lost `I04` even though keyword had it at rank 1. The mechanism is RRF
+itself: a message ranked first by one arm scores 1/(60+1) = 0.0164, while any message both arms
+list — even around rank 50 — scores 1/110 + 1/110 = 0.0182 and outranks it. With broad, noisy
+candidate lists, weak agreement between the arms outvotes one arm's confident answer. Narrowing
+fusion to 10 per arm reverses this: 65.0% recall, the best of any mode, taking identifier recall
+from keyword and paraphrase recall from vector. But that is one question more than vector, MRR is
+still below vector's, and the setting was chosen after the fact.
+
+### Findings along the way
+
+**Filtered HNSW returned incomplete results.** There is one HNSW index across all rooms (§8.2)
+and pgvector applies the `room_id` filter after walking the graph, which by default visits about
+40 candidates. §8.5's query as written returned **27.7 rows of LIMIT 50** on average, and its top
+10 agreed with an exact search only **78%** of the time. pgvector 0.8's iterative scan with
+`ef_search = 100` returns all 50 and lifts agreement to 92.7%; raising it to 200 or 400 adds
+under a point. The scan itself costs no measurable time — the ~2 ms p95 gap between the iterative
+and as-written rows is the two extra `SET LOCAL` round trips. Rows from other rooms were never returned either way, so this is a recall
+issue and not a leak. **It changed no final score on this corpus** — answers ranked either first,
+which the index always found, or far outside the top 10 — but the loss grows as more rooms share
+the index.
+
+**Sending the vector twice cost about 42 ms.** The first run reported vector search at 49 ms p50 while
+Postgres executed the query in under 1 ms. Drizzle turns each interpolation into its own
+parameter, so a query with the distance in both `SELECT` and `ORDER BY` — the form §8.5 shows —
+sent the ~4.5 KB vector twice, spreading the request across several TCP segments and hitting a
+delayed-ACK stall on the hop into WSL2: 44 ms with the vector sent twice, 1.7 ms reusing one
+parameter. Ordering by the output alias sends it once and still uses the HNSW index. p50 fell from
+49 ms to 5.7 ms with identical results.
+
+**`ts_rank` has no inverse document frequency.** Unlike BM25, a rare ticket id counts no more than
+a common word like "cause", which is part of why OR matching still ranks templated lookalikes
+highly.
+
+### Threats to validity
+
+- **The templated filler is the main limitation.** About 30 templates per room produce clusters
+  of near-identical messages. Vector search's ranks came out bimodal — 19 answers at #1, **none at
+  #2–10**, 11 below the top 10 — because when the answer is not the nearest neighbour, a whole cluster of
+  lookalikes buries it. That makes this harsher than real conversation and makes MRR track recall
+  closely. A corpus generated by an LLM (planned with Groq) would test whether the ranking holds.
+- **30 questions is small.** Apart from keyword-with-AND against everything else, every gap in
+  these tables is a handful of questions.
+- **The answer key and the questions were written by the same author**, knowing how the
+  retrievers work. Categories are verified mechanically, but difficulty was not calibrated
+  independently.
+- **Strict relevance** means a filler message that happens to help earns no credit; the scores
+  are a lower bound.
+- **The model is small.** `bge-small-en-v1.5` scores 51.68 on MTEB retrieval against 54.29 for
+  `bge-large`; a larger or hosted model could move the vector numbers.
+- **One machine**, and latency includes the WSL2 hop and the membership query.
+
+### Reproduce
+
+```bash
+docker compose up -d postgres
+npm run rag:seed -w server                     # --reset to rebuild
+npm run rag:backfill -w server -- --room rag-eng-platform --room rag-incidents \
+                                  --room rag-product --room rag-team
+npm run rag:eval -w server                     # writes docs/rag-eval/results.json
+```
+
+The corpus is deterministic (seeded PRNG); only message ids and timestamps change between seedings,
+and the evaluation resolves answers by body.
+
+---
+
 ## Metrics and load tooling
 
 `/metrics` (prom-client) exposes, per instance, labelled with `nodeId`:
@@ -245,3 +416,8 @@ docker run --rm --network chatapplication_default \
 | Async persistence prevents message loss during outages | **Confirmed** (Phase 4 exit criterion: 100/100 recovered) |
 | Two instances lower delivery latency | **Not supported** at this load — neither node was saturated |
 | Two instances work correctly (cross-node delivery) | **Confirmed** (Phase 5 exit criterion) |
+| Keyword search wins on exact names and IDs (§8.8) | **Refuted as specified** (AND matching: 30% vs vector 70%); **partly confirmed** with OR matching (80% vs 70%, MRR tied) |
+| Vector search wins on paraphrase (§8.8) | **Confirmed** — 29% vs 0% — but vector found only 4 of 12 |
+| Hybrid retrieval beats both arms (§8.8) | **Not supported** — identical to vector as specified, worse with OR keyword at 50/arm; ahead by one question only with post-hoc 10/arm fusion |
+| A non-member cannot retrieve a room's messages (§8.7 criterion 2) | **Confirmed** by automated test, including a planted identical vector in another room |
+| Retrieval finds an answer sharing none of the question's words (§8.7 criterion 1, retrieval half) | **Confirmed** for 4 of 12 paraphrase questions; the generated-answer half awaits the bot |

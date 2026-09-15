@@ -15,11 +15,11 @@ import {
  * Width of the embedding vectors, fixed in the column type by pgvector.
  *
  * PROJECT.md 8.3 specifies 1536, which is `text-embedding-3-small`'s width.
- * This build embeds with Groq's `nomic-embed-text-v1_5`, which is 768. The
- * embed worker asserts the API's actual width against this on first use, so a
- * model swap fails loudly instead of silently writing truncated vectors.
+ * This build embeds locally with `bge-small-en-v1.5` - the alternative 2 names -
+ * which is 384. The embedding client asserts the model's actual width against
+ * this, so a model swap fails loudly instead of writing mismatched vectors.
  */
-export const EMBEDDING_DIMENSIONS = 768;
+export const EMBEDDING_DIMENSIONS = 384;
 
 /** Postgres full-text type; drizzle has no built-in for it. */
 const tsvector = customType<{ data: string; driverData: string }>({

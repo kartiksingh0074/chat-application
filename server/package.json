@@ -21,10 +21,13 @@
     "worker:dev": "tsx watch src/worker/persistWorker.ts",
     "embed:worker": "tsx src/worker/embedWorker.ts",
     "embed:worker:dev": "tsx watch src/worker/embedWorker.ts",
-    "rag:backfill": "tsx src/rag/backfillEmbeddings.ts"
+    "rag:backfill": "tsx src/rag/backfillEmbeddings.ts",
+    "rag:seed": "tsx src/rag/corpus/seedCorpus.ts",
+    "rag:eval": "tsx src/rag/eval/runEval.ts"
   },
   "dependencies": {
     "@chat-application/shared": "*",
+    "@huggingface/transformers": "^4.2.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "argon2": "^0.41.1",
     "bullmq": "^5.28.2",

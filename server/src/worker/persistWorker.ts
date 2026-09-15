@@ -2,7 +2,7 @@ import { Worker } from 'bullmq';
 import { redisConnection } from '../queues/connection.js';
 import { PERSIST_QUEUE_NAME, type PersistMessageJob } from '../queues/persistQueue.js';
 import { embedQueue } from '../queues/embedQueue.js';
-import { isEmbeddable } from '../rag/embeddings.js';
+import { isEmbeddable } from '../rag/chunking.js';
 import { db, pool } from '../db/client.js';
 import { messages } from '../db/schema.js';
 import { logger } from '../logger.js';

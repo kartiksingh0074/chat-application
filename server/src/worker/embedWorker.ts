@@ -4,7 +4,7 @@ import { redisConnection } from '../queues/connection.js';
 import { EMBED_QUEUE_NAME, type EmbedMessageJob } from '../queues/embedQueue.js';
 import { db, pool } from '../db/client.js';
 import { messageEmbeddings } from '../db/schema.js';
-import { embedDocuments, MissingApiKeyError } from '../rag/embeddings.js';
+import { embedDocuments } from '../rag/embeddings.js';
 import { env } from '../config/env.js';
 import { logger } from '../logger.js';
 
@@ -35,7 +35,7 @@ const worker = new Worker<EmbedMessageJob>(
     // collide - and re-embedding after a model change should overwrite.
     await db
       .insert(messageEmbeddings)
-      .values({ messageId, roomId, embedding, model: env.GROQ_EMBED_MODEL })
+      .values({ messageId, roomId, embedding, model: env.EMBED_MODEL })
       .onConflictDoUpdate({
         target: messageEmbeddings.messageId,
         set: {
@@ -53,20 +53,15 @@ worker.on('completed', (job) => {
 });
 
 worker.on('failed', (job, err) => {
-  if (err instanceof MissingApiKeyError) {
-    // Expected until a key is configured. Not an error: 8.4 says a message
-    // that fails to embed stays searchable by keyword, so retrieval degrades
-    // rather than losing the message entirely.
-    logger.warn({ messageId: job?.data.messageId }, 'embedding skipped: GROQ_API_KEY not set');
-    return;
-  }
+  // 8.4: a message that never embeds stays searchable by keyword, so this
+  // degrades retrieval for that message rather than losing it.
   logger.error(
     { jobId: job?.id, messageId: job?.data.messageId, attemptsMade: job?.attemptsMade, err },
     'embed job failed',
   );
 });
 
-logger.info({ model: env.GROQ_EMBED_MODEL }, 'embed worker started');
+logger.info({ model: env.EMBED_MODEL }, 'embed worker started');
 
 async function shutdown() {
   await worker.close();

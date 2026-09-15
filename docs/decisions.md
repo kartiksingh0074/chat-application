@@ -341,3 +341,75 @@ and the subtle one: both a private room and the outsider's own room hold the *id
 if the room filter were missing or applied after the top-k, the private message would rank top in
 the outsider's own search. It does not. That is the leak 8.5 calls non-negotiable, and it is the
 kind of property that cannot be established by reading SQL strings.
+
+
+## Phase 8, part 2 - local embeddings and the 8.8 evaluation
+
+Numbers for everything below are in `docs/benchmarks.md`, experiment 5.
+
+**Embeddings run locally with `bge-small-en-v1.5`, not through Groq.** Groq's model catalogue lists
+no embedding model, and PROJECT.md 2 names `bge-small-en` via transformers.js as the alternative to
+a hosted one. Local also suits a benchmark that gets re-run: no key, no request cap to hit while
+iterating, and a model that cannot change underneath a measurement. It needs no GPU and no WSL - it
+runs on native Windows Node at about 272 MB. The column is 384 wide, down from 768; the table was
+empty, so the migration was a plain type change and the HNSW index rebuilt cleanly. Groq stays for
+generation only.
+
+**BGE's conventions differ from nomic's, and both mistakes are silent.** BGE prefixes the *query*
+only, never the documents (nomic prefixes both), and uses CLS pooling rather than mean pooling.
+Either mistake degrades retrieval without an error. Both live in `rag/embeddings.ts` alone, and a
+probe confirmed normalised output before anything was built on it.
+
+**The persist worker must never load the ML runtime.** It imported `isEmbeddable` from
+`embeddings.ts`, so a static transformers.js import would have pulled ONNX into the chat worker
+container just to check a message's length. The check moved to `rag/chunking.ts`, and the model is
+loaded by dynamic import on first use.
+
+**The corpus is scripted, not LLM-generated.** Generating it with Groq needs the key, and a scripted
+corpus gives exact ground truth anyway: each of the 30 questions points at planted messages, and
+nothing else counts. Its weakness is real and is the first threat to validity in the benchmark: ~30
+templates per room make clusters of near-identical messages, which pushes ranks to all-or-nothing.
+The Groq-generated corpus should be added once the key is available, to test whether the ranking
+survives more natural text.
+
+**Question categories are verified with Postgres's own stemmer.** "Paraphrase" is a claim about
+shared words, so `ragCorpus.test.ts` checks it with `to_tsvector('english')` - the tokeniser the
+keyword arm uses - rather than by eye. The same test fails if filler contains a term anchoring a
+planted answer. Screening is word-start, not substring: `ebs` must not match `websocket`.
+
+**Near misses are hand-written for every planted fact.** A probe before the corpus existed showed
+"we should deploy the release on monday morning" scoring 0.66 against "when is the deployment
+window?" and the real answer only 0.49. Without deliberate wrong answers on the same topic, vector
+search would look far better than it is.
+
+**The vector arm uses pgvector's iterative scan with `ef_search = 100`.** §8.5's query as written
+returned 27.7 rows of LIMIT 50 on a four-room index, because the room filter is applied after a
+~40-candidate graph walk. It changed no final score here, but the loss grows with the number of
+rooms sharing the index, and iterative scan fixes it without per-room indexes (§8.2 rules those
+out). The settings are `SET LOCAL` inside a transaction so they cannot leak onto a pooled connection.
+
+**The query vector is sent once.** Drizzle makes each interpolation its own parameter, so putting
+the distance in both `SELECT` and `ORDER BY` shipped the ~4.5 KB vector twice and hit a ~40 ms
+delayed-ACK stall on the hop into WSL2 - 49 ms p50 against Postgres's sub-millisecond execution.
+Ordering by the output alias sends it once and still uses the index (checked with EXPLAIN).
+
+**The official keyword arm stays §8.5's AND matching; OR and fusion depth are diagnostics only.**
+AND matching returns nothing for 22 of 30 natural-language questions, and OR matching or narrower
+fusion both score better. Neither became the default: both were measured on the same 30 questions
+used for scoring, and changing the default on that basis would be tuning to the test set. They are
+reported as mechanisms, with that caveat stated beside them.
+
+**Accepted vulnerabilities from transformers.js.** `npm audit` reports four high-severity findings
+arriving with `@huggingface/transformers`, none with a fix: `sharp` (libvips image-decoding CVEs),
+`adm-zip` (a crafted ZIP forcing a 4 GB allocation), and `onnxruntime-node` and transformers.js
+flagged transitively. None is reachable here - the library is only ever given message text from
+our own database, never an image or an archive, and it runs only in the embedding and evaluation
+processes, not in the socket servers. The moderate `express` / `qs` findings predate this change.
+
+**A blank `GROQ_API_KEY=` reads as unset.** Left empty in `.env`, it would otherwise fail `min(1)`
+and stop the whole server at boot, including everything that does not need a key.
+
+**Known gap: nothing consumes the embed queue in Docker.** The persist worker enqueues an embed job
+for each live message, but the embed worker is not a docker-compose service - it runs on the host
+(`npm run embed:worker -w server`), which keeps the model out of the WSL2 memory allocation. Until
+it runs, live messages stay keyword-searchable (§8.4) and their jobs wait in Redis.

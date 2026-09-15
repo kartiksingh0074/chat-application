@@ -35,7 +35,7 @@ const ownMessageId = ulid();
 // A fixed direction, so both rooms hold a vector that is a perfect match for
 // the same query. Any room leak therefore shows up as a top-ranked hit rather
 // than something buried.
-function unitVector(dimensions = 768): number[] {
+function unitVector(dimensions = 384): number[] {
   return Array.from({ length: dimensions }, (_, i) => (i === 0 ? 1 : 0));
 }
 

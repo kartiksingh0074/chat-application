@@ -4,3 +4,6 @@ build/
 .env
 *.log
 .DS_Store
+
+# Downloaded embedding model weights (transformers.js cache)
+.cache/

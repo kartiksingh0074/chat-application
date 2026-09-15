@@ -1,0 +1,863 @@
+{
+  "generatedAt": "2026-09-15T18:10:39.810Z",
+  "environment": {
+    "cpu": "AMD Ryzen 7 170 with Radeon Graphics           ",
+    "logicalCores": 16,
+    "ramGb": 15,
+    "platform": "win32 x64",
+    "node": "v24.15.0",
+    "embeddingModel": "Xenova/bge-small-en-v1.5",
+    "postgres": "pgvector/pgvector:pg16 in Docker Desktop (WSL2)",
+    "note": "Timings include the membership check and the host-to-WSL2 hop to Postgres."
+  },
+  "method": {
+    "questions": 30,
+    "k": 10,
+    "timedRepetitions": 5,
+    "armCandidates": 50,
+    "rrfK": 60,
+    "armCandidatesNote": "official modes use 50 per arm, as 8.5 specifies",
+    "relevance": "strict: only planted answers count, so scores are a lower bound"
+  },
+  "embeddingCost": {
+    "messages": 1000,
+    "batchSize": 32,
+    "msPer1k": 2635,
+    "messagesPerSecond": 380,
+    "costUsdPer1k": 0
+  },
+  "indexSize": {
+    "embeddings": 3336,
+    "hnswBytes": 3940352,
+    "tableBytes": 6848512,
+    "roomIndexBytes": 57344,
+    "hnswBytesPer1k": 1181161,
+    "tableBytesPer1k": 2052911,
+    "ginBytesAllMessages": 31383552
+  },
+  "results": [
+    {
+      "config": "keyword",
+      "official": true,
+      "recallAt10": 0.26666666666666666,
+      "mrr": 0.26666666666666666,
+      "p50RetrievalMs": 1.6405999999999494,
+      "p95RetrievalMs": 2.1769999999999072,
+      "p95EndToEndMs": 2.1773000000000593,
+      "questionsWithNoResults": 22,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.3,
+          "mrr": 0.3
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0,
+          "mrr": 0
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 0.625,
+          "mrr": 0.625
+        }
+      }
+    },
+    {
+      "config": "vector",
+      "official": true,
+      "recallAt10": 0.6166666666666667,
+      "mrr": 0.6333333333333333,
+      "p50RetrievalMs": 5.719000000000051,
+      "p95RetrievalMs": 6.7651999999998225,
+      "p95EndToEndMs": 13.828899999999976,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.3333333333333333
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 1
+        }
+      }
+    },
+    {
+      "config": "hybrid",
+      "official": true,
+      "recallAt10": 0.6166666666666667,
+      "mrr": 0.6333333333333333,
+      "p50RetrievalMs": 5.990200000000186,
+      "p95RetrievalMs": 7.0658000000003085,
+      "p95EndToEndMs": 14.092099999999846,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.3333333333333333
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 1
+        }
+      }
+    },
+    {
+      "config": "keyword, any word",
+      "official": false,
+      "recallAt10": 0.5333333333333333,
+      "mrr": 0.48333333333333334,
+      "p50RetrievalMs": 1.7100000000000364,
+      "p95RetrievalMs": 2.079200000000128,
+      "p95EndToEndMs": 2.0793000000003303,
+      "questionsWithNoResults": 2,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.8,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0,
+          "mrr": 0
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 0.9375
+        }
+      }
+    },
+    {
+      "config": "hybrid, any-word keyword",
+      "official": false,
+      "recallAt10": 0.5833333333333334,
+      "mrr": 0.5566666666666666,
+      "p50RetrievalMs": 6.070499999999811,
+      "p95RetrievalMs": 7.360899999999674,
+      "p95EndToEndMs": 14.53270000000066,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.20833333333333334,
+          "mrr": 0.18333333333333335
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 0.9375
+        }
+      }
+    },
+    {
+      "config": "hybrid, any-word, 20 per arm",
+      "official": false,
+      "recallAt10": 0.6166666666666667,
+      "mrr": 0.59,
+      "p50RetrievalMs": 5.5393999999996595,
+      "p95RetrievalMs": 6.366799999999785,
+      "p95EndToEndMs": 13.315800000000309,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.26666666666666666
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 0.9375
+        }
+      }
+    },
+    {
+      "config": "hybrid, any-word, 10 per arm",
+      "official": false,
+      "recallAt10": 0.65,
+      "mrr": 0.6166666666666667,
+      "p50RetrievalMs": 5.41820000000007,
+      "p95RetrievalMs": 6.021499999998923,
+      "p95EndToEndMs": 12.93500000000131,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.8,
+          "mrr": 0.7166666666666666
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.2777777777777778
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 1
+        }
+      }
+    },
+    {
+      "config": "vector, 8.5 index use as written",
+      "official": false,
+      "recallAt10": 0.6166666666666667,
+      "mrr": 0.6333333333333333,
+      "p50RetrievalMs": 4.118000000000393,
+      "p95RetrievalMs": 4.626500000000306,
+      "p95EndToEndMs": 11.69510000000082,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.3333333333333333
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 1
+        }
+      }
+    },
+    {
+      "config": "vector, exact search",
+      "official": false,
+      "recallAt10": 0.6166666666666667,
+      "mrr": 0.6333333333333333,
+      "p50RetrievalMs": 10.01220000000103,
+      "p95RetrievalMs": 14.018099999997503,
+      "p95EndToEndMs": 20.968199999999342,
+      "questionsWithNoResults": 0,
+      "byCategory": {
+        "identifier": {
+          "questions": 10,
+          "recallAt10": 0.7,
+          "mrr": 0.7
+        },
+        "paraphrase": {
+          "questions": 12,
+          "recallAt10": 0.2916666666666667,
+          "mrr": 0.3333333333333333
+        },
+        "lexical": {
+          "questions": 8,
+          "recallAt10": 1,
+          "mrr": 1
+        }
+      }
+    }
+  ],
+  "perQuestion": [
+    {
+      "id": "I01",
+      "category": "identifier",
+      "question": "What was the root cause of INC-4471?",
+      "sharedLexemes": [
+        "-4471",
+        "inc"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "I02",
+      "category": "identifier",
+      "question": "What happened with db-replica-07?",
+      "sharedLexemes": [
+        "07",
+        "db",
+        "db-replica",
+        "replica"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I03",
+      "category": "identifier",
+      "question": "Who owns the upgrade to postgres 17.2?",
+      "sharedLexemes": [
+        "17.2",
+        "own",
+        "postgr"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I04",
+      "category": "identifier",
+      "question": "Is PLAT-2208 fixed yet?",
+      "sharedLexemes": [
+        "-2208",
+        "plat"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": 6,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "I05",
+      "category": "identifier",
+      "question": "What does E_QUOTA_1043 mean?",
+      "sharedLexemes": [
+        "1043",
+        "e",
+        "mean",
+        "quota"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I06",
+      "category": "identifier",
+      "question": "What did Northwind Logistics ask for?",
+      "sharedLexemes": [
+        "ask",
+        "logist",
+        "northwind"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I07",
+      "category": "identifier",
+      "question": "Why was kestrel_search disabled?",
+      "sharedLexemes": [
+        "kestrel",
+        "search"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 2,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I08",
+      "category": "identifier",
+      "question": "When does the Vantor Cloud contract renew?",
+      "sharedLexemes": [
+        "cloud",
+        "contract",
+        "renew",
+        "vantor"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "I09",
+      "category": "identifier",
+      "question": "What is going into release 4.18.0?",
+      "sharedLexemes": [
+        "4.18.0"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "I10",
+      "category": "identifier",
+      "question": "Who is our contact at Brightwave?",
+      "sharedLexemes": [
+        "brightwav"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 2,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "P01",
+      "category": "paraphrase",
+      "question": "What time did we agree to ship to production?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P02",
+      "category": "paraphrase",
+      "question": "Why did the site go down for European customers?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P03",
+      "category": "paraphrase",
+      "question": "Can people who can't travel still join the retreat?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P04",
+      "category": "paraphrase",
+      "question": "Are we hiring anyone for the phone apps?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "P05",
+      "category": "paraphrase",
+      "question": "What happens to customers who pay yearly?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": 5,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "P06",
+      "category": "paraphrase",
+      "question": "Is the office closed at some point soon?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P07",
+      "category": "paraphrase",
+      "question": "How did the attacker get in?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "P08",
+      "category": "paraphrase",
+      "question": "Who should I talk to about getting reimbursed?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P09",
+      "category": "paraphrase",
+      "question": "Why is the test pipeline taking so long?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P10",
+      "category": "paraphrase",
+      "question": "Did the big German customer sign?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P11",
+      "category": "paraphrase",
+      "question": "Why can't new users verify their email?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": null,
+        "hybrid": null,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": null,
+        "hybrid, any-word, 10 per arm": null,
+        "vector, 8.5 index use as written": null,
+        "vector, exact search": null
+      }
+    },
+    {
+      "id": "P12",
+      "category": "paraphrase",
+      "question": "What are we doing to cut the cloud bill?",
+      "sharedLexemes": [],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": null,
+        "hybrid, any-word keyword": null,
+        "hybrid, any-word, 20 per arm": 5,
+        "hybrid, any-word, 10 per arm": 3,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L01",
+      "category": "lexical",
+      "question": "What is the new price for the Scale plan?",
+      "sharedLexemes": [
+        "plan",
+        "price",
+        "scale"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L02",
+      "category": "lexical",
+      "question": "When is the offsite?",
+      "sharedLexemes": [
+        "offsit"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L03",
+      "category": "lexical",
+      "question": "Who is on call over the easter weekend?",
+      "sharedLexemes": [
+        "call",
+        "easter",
+        "weekend"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L04",
+      "category": "lexical",
+      "question": "Where did we land on the logo redesign?",
+      "sharedLexemes": [
+        "logo",
+        "redesign"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L05",
+      "category": "lexical",
+      "question": "Is the api rate limit being raised?",
+      "sharedLexemes": [
+        "api",
+        "limit",
+        "rate"
+      ],
+      "ranks": {
+        "keyword": null,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L06",
+      "category": "lexical",
+      "question": "When are performance review self assessments due?",
+      "sharedLexemes": [
+        "assess",
+        "due",
+        "perform",
+        "review",
+        "self"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L07",
+      "category": "lexical",
+      "question": "Where is the search index moving to?",
+      "sharedLexemes": [
+        "index",
+        "move",
+        "search"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 2,
+        "hybrid, any-word keyword": 2,
+        "hybrid, any-word, 20 per arm": 2,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    },
+    {
+      "id": "L08",
+      "category": "lexical",
+      "question": "What is the plan for the mobile onboarding flow?",
+      "sharedLexemes": [
+        "flow",
+        "mobil",
+        "onboard",
+        "plan"
+      ],
+      "ranks": {
+        "keyword": 1,
+        "vector": 1,
+        "hybrid": 1,
+        "keyword, any word": 1,
+        "hybrid, any-word keyword": 1,
+        "hybrid, any-word, 20 per arm": 1,
+        "hybrid, any-word, 10 per arm": 1,
+        "vector, 8.5 index use as written": 1,
+        "vector, exact search": 1
+      }
+    }
+  ]
+}

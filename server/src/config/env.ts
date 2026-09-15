@@ -31,18 +31,24 @@ const envSchema = z.object({
   MINIO_REGION: z.string().default('us-east-1'),
 
   // --- Phase 8 (RAG) ---
-  // Optional so the app still boots without it: everything except embedding
-  // and generation works, and the keyword arm is fully functional. The bot
-  // routes check for it and fail with a clear message rather than at boot.
-  GROQ_API_KEY: z.string().min(1).optional(),
+  // Groq is used for generation only (8.6). Optional so everything else - schema,
+  // retrieval, embedding and the 8.8 evaluation - works without a key; the bot
+  // route reports its absence plainly instead of failing at boot.
+  // A blank `GROQ_API_KEY=` line reads as unset rather than failing min(1) and
+  // taking the whole server down at boot.
+  GROQ_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(1).optional()),
   GROQ_BASE_URL: z.string().url().default('https://api.groq.com/openai/v1'),
-  GROQ_CHAT_MODEL: z.string().default('llama-3.3-70b-versatile'),
-  GROQ_EMBED_MODEL: z.string().default('nomic-embed-text-v1_5'),
-  // 8.5 requires all three modes to be implemented and selectable, so 8.8 can
+  GROQ_CHAT_MODEL: z.string().default('openai/gpt-oss-120b'),
+  // Embeddings run locally (see rag/embeddings.ts). Groq's catalogue lists no
+  // embedding model, and PROJECT.md 2 names bge-small-en via transformers.js as
+  // the alternative. Changing this means changing EMBEDDING_DIMENSIONS too.
+  EMBED_MODEL: z.string().default('Xenova/bge-small-en-v1.5'),
+  // 8.5 requires all three modes implemented and selectable, so 8.8 can
   // measure each against the same corpus.
   RETRIEVAL_MODE: z.enum(['keyword', 'vector', 'hybrid']).default('hybrid'),
-  // 8.4: the embed worker batches up to this many messages per API call.
-  EMBED_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(100),
+  // Batch size drives peak activation memory on CPU. 32 keeps the embedding
+  // process near 300 MB; 100 buys little throughput for noticeably more.
+  EMBED_BATCH_SIZE: z.coerce.number().int().min(1).max(128).default(32),
 });
 
 export const env = envSchema.parse(process.env);

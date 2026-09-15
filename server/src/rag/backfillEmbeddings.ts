@@ -1,25 +1,23 @@
 import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { db, pool } from '../db/client.js';
 import { messageEmbeddings, messages } from '../db/schema.js';
-import { embedDocuments, isEmbeddable, MIN_EMBEDDABLE_LENGTH } from './embeddings.js';
+import { embedDocuments } from './embeddings.js';
+import { isEmbeddable, MIN_EMBEDDABLE_LENGTH } from './chunking.js';
 import { env } from '../config/env.js';
 import { logger } from '../logger.js';
 
 /**
  * One-off backfill for history that predates the embed worker (8.4).
  *
- * This is where batching earns its keep: the free tier is metered by requests
- * per day as well as tokens, so one call per message would burn the daily
- * budget on a few hundred messages. At 100 per call, a few thousand messages
- * cost a few dozen requests.
+ * Batched: the model runs far faster over a batch than message by message, and
+ * a batch of EMBED_BATCH_SIZE keeps peak memory bounded.
  *
  * Deliberately scoped by room. The 505k seeded messages are all the same
- * sentence with a counter - embedding them would cost roughly 8M tokens to
- * produce half a million near-identical vectors, which measures nothing in
- * 8.8. Pass the rooms that hold real conversation.
+ * sentence with a counter - embedding them would take a long CPU run to produce
+ * half a million near-identical vectors, which measures nothing in 8.8. Pass
+ * the rooms that hold real conversation.
  *
- *   npm run rag:backfill -w server -- --room <roomId> [--room <roomId>] [--limit N]
- *   npm run rag:backfill -w server -- --all-except-seeded
+ *   npm run rag:backfill -w server -- --room <roomId> [--room <roomId>] [--limit N] [--dry-run]
  */
 
 interface Options {
@@ -97,7 +95,7 @@ async function backfillRoom(roomId: string, options: Options): Promise<number> {
           messageId: m.id,
           roomId: m.roomId,
           embedding: vectors[i]!,
-          model: env.GROQ_EMBED_MODEL,
+          model: env.EMBED_MODEL,
         })),
       )
       .onConflictDoNothing();
