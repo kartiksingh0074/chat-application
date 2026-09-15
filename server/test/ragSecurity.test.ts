@@ -168,6 +168,29 @@ describe('8.5 - the room filter is inside the query, not applied to its output',
   });
 });
 
+describe('retrieved messages', () => {
+  it.each(['keyword', 'vector', 'hybrid'] as const)(
+    'carry a real Date in %s mode, which the bot prompt formats',
+    async (mode) => {
+      // The vector arm uses raw execute(), which skips drizzle's mapping and
+      // returned timestamps as strings. It crashed the first live @bot answer.
+      const result = await rag.retrieve({
+        roomId: privateRoomId,
+        userId: insiderId,
+        query: 'deployment window pineapple',
+        mode,
+        topK: 10,
+        queryEmbedding: unitVector(),
+      });
+      expect(result.messages.length).toBeGreaterThan(0);
+      for (const m of result.messages) {
+        expect(m.createdAt).toBeInstanceOf(Date);
+        expect(Number.isNaN(m.createdAt.getTime())).toBe(false);
+      }
+    },
+  );
+});
+
 describe('retrieval preconditions', () => {
   it('refuses vector and hybrid without an embedding, rather than silently degrading', async () => {
     for (const mode of ['vector', 'hybrid'] as const) {

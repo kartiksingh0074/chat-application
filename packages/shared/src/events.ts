@@ -5,6 +5,8 @@ export interface Message {
   body: string | null;
   attachmentKey: string | null;
   createdAt: string;
+  /** Bot answers only: ids of the messages the answer was drawn from (PROJECT.md 8.6). */
+  citations?: string[] | null;
 }
 
 export interface ServerToClientEvents {
@@ -43,3 +45,22 @@ export const TYPING_TIMEOUT_MS = 6000;
 
 /** How often a client may re-announce that it is still typing. */
 export const TYPING_REFRESH_MS = 2500;
+
+/**
+ * The bot's account. A fixed id rather than a lookup, so the client can style
+ * its messages without asking the server who the bot is. Created by migration;
+ * it has no usable password and cannot log in.
+ */
+export const BOT_USER_ID = 'bot';
+
+/**
+ * The question in a message addressed to the bot, or null if it is not one.
+ * Only a message that *starts* with @bot counts, so mentioning the bot mid-
+ * sentence ("ask @bot later") does not trigger a query.
+ */
+export function parseBotQuestion(body: string | null | undefined): string | null {
+  if (!body) return null;
+  // The lookahead stops "@botany" or "@bot_admin" counting as the bot.
+  const match = /^\s*@bot(?![a-z0-9_])[\s,:]*(.*)$/is.exec(body);
+  return match ? match[1]!.trim() : null;
+}

@@ -9,6 +9,7 @@ import { logger } from '../logger.js';
 import { registerHandlers } from './handlers.js';
 import { markOnline, markOffline } from '../presence/presence.js';
 import { activeSockets, wsReconnectionsTotal } from '../metrics/metrics.js';
+import { subscribeToRelay } from '../bot/relay.js';
 
 export interface SocketData {
   userId: string;
@@ -37,6 +38,13 @@ export function createSocketServer(httpServer: HttpServer) {
   const pubClient = new Redis(env.REDIS_URL);
   const subClient = pubClient.duplicate();
   io.adapter(createAdapter(pubClient, subClient));
+
+  // Bot answers are generated in the RAG worker and relayed through Redis;
+  // this node delivers them to its own sockets (see bot/relay.ts). A connection
+  // in subscriber mode cannot run other commands, so it gets its own.
+  subscribeToRelay(io, pubClient.duplicate()).catch((err) =>
+    logger.error({ err }, 'could not subscribe to the bot relay; bot answers will not be delivered'),
+  );
 
   // The handshake's IncomingMessage is retained for the life of the socket
   // otherwise, pinning its headers and buffers per connection. handshake.auth

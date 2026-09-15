@@ -147,10 +147,11 @@ export async function vectorSearch(
       id: string;
       body: string | null;
       sender_id: string;
-      created_at: Date;
+      created_at: string;
       distance: number;
     }>(sql`
-      SELECT m.id, m.body, m.sender_id, m.created_at,
+      SELECT m.id, m.body, m.sender_id,
+             to_json(m.created_at) #>> '{}' AS created_at,
              e.embedding <=> ${literal}::vector AS distance
       FROM message_embeddings e
       JOIN messages m ON m.id = e.message_id
@@ -163,7 +164,10 @@ export async function vectorSearch(
       id: r.id,
       body: r.body,
       senderId: r.sender_id,
-      createdAt: r.created_at,
+      // Raw execute() skips drizzle's column mapping, so timestamps arrive as
+      // strings - "2026-09-15 18:50:32.506+00", not ISO-8601. The query asks
+      // Postgres for ISO text so parsing does not rely on lenient Date parsing.
+      createdAt: new Date(r.created_at),
       score: 1 - Number(r.distance),
     }));
   });

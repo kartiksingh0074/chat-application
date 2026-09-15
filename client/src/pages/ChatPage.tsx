@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BOT_USER_ID } from '@chat-application/shared';
 import { useAuth } from '../auth/AuthProvider.js';
 import { roomTitle, useRooms } from '../hooks/useRooms.js';
 import { useMessages } from '../hooks/useMessages.js';
@@ -199,20 +200,26 @@ export function ChatPage() {
                   scrollToId={scrollToId}
                   highlightId={highlightId}
                   onJumpTo={jumpTo}
+                  botUserId={BOT_USER_ID}
                   citationsFor={citationsFor}
                   onRetry={retryMessage}
                   onOpenImage={setLightbox}
                 />
               )}
 
-              {streams.map((stream) => (
-                <BotAnswer
-                  key={stream.queryId}
-                  stream={stream}
-                  onJumpTo={jumpTo}
-                  onDismiss={dismiss}
-                />
-              ))}
+              {/* A finished answer is also saved as an ordinary message. Once that
+                  message is in the list, the list shows it - hiding the stream
+                  here is what stops the answer appearing twice. */}
+              {streams
+                .filter((stream) => !stream.messageId || !messages.some((m) => m.id === stream.messageId))
+                .map((stream) => (
+                  <BotAnswer
+                    key={stream.queryId}
+                    stream={stream}
+                    onJumpTo={jumpTo}
+                    onDismiss={dismiss}
+                  />
+                ))}
 
               <Composer
                 onSend={sendMessage}

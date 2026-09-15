@@ -139,7 +139,9 @@ export function MessageList({
           const mine = m.senderId === currentUserId;
           const isBot = botUserId != null && m.senderId === botUserId;
           const name = isBot ? 'Bot' : mine ? 'You' : nameFor(m.senderId);
-          const citations = isBot ? citationsFor(m.id) : [];
+          // Saved citations come with the message; the in-memory lookup only
+          // covers the moment between a stream finishing and the save landing.
+          const citations = isBot ? (m.citations?.length ? m.citations : citationsFor(m.id)) : [];
           const highlighted = m.id === highlightId;
 
           return (

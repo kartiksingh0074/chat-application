@@ -79,3 +79,16 @@ describe('the around/after query shapes', () => {
     expect(newer.params).toContain(25);
   });
 });
+
+describe('what history sends to the client', () => {
+  it('never includes the search index column', async () => {
+    const q = await import('../src/rooms/messagesQuery.js');
+    for (const built of [
+      q.buildMessagesPageQuery('r', undefined, 5),
+      q.buildMessagesAfterQuery('r', '01J', 5),
+      q.buildMessagesAtOrBeforeQuery('r', '01J', 5),
+    ]) {
+      expect(built.toSQL().sql).not.toContain('body_tsv');
+    }
+  });
+});

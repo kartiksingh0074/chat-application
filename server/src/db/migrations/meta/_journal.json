@@ -29,6 +29,13 @@
       "when": 1789494519594,
       "tag": "0003_lazy_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789497619951,
+      "tag": "0004_quick_skrulls",
+      "breakpoints": true
     }
   ]
 }

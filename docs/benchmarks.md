@@ -420,4 +420,6 @@ docker run --rm --network chatapplication_default \
 | Vector search wins on paraphrase (§8.8) | **Confirmed** — 29% vs 0% — but vector found only 4 of 12 |
 | Hybrid retrieval beats both arms (§8.8) | **Not supported** — identical to vector as specified, worse with OR keyword at 50/arm; ahead by one question only with post-hoc 10/arm fusion |
 | A non-member cannot retrieve a room's messages (§8.7 criterion 2) | **Confirmed** by automated test, including a planted identical vector in another room |
-| Retrieval finds an answer sharing none of the question's words (§8.7 criterion 1, retrieval half) | **Confirmed** for 4 of 12 paraphrase questions; the generated-answer half awaits the bot |
+| The bot finds an answer phrased with none of the question's words (§8.7 criterion 1) | **Confirmed** — retrieval ranks it first for 4 of 12 paraphrase questions, and the live bot answered "How did the attacker get in?" correctly from the planted message. One live example, not a measured rate |
+| Every answer carries citations, each a real message in the room (§8.7 criterion 4) | **Confirmed** for the live answers: all 4 saved citations resolved to real messages in their own room, and a question the history cannot answer got no citation rather than an invented one |
+| Ingesting 10k messages leaves socket event loop lag unchanged (§8.7 criterion 3) | **Not yet measured** |

@@ -413,3 +413,67 @@ and stop the whole server at boot, including everything that does not need a key
 for each live message, but the embed worker is not a docker-compose service - it runs on the host
 (`npm run embed:worker -w server`), which keeps the model out of the WSL2 memory allocation. Until
 it runs, live messages stay keyword-searchable (§8.4) and their jobs wait in Redis.
+
+
+## Phase 8, part 3 - the @bot answer path
+
+**Answers are generated in a worker, not the socket servers.** The bot has to embed the question,
+and 8.4 forbids the socket path from calling an embedding model. Doing it in node-1 and node-2
+would also load a ~270 MB model into each and block their event loops on CPU inference. So the
+socket handler only checks the rate limit and enqueues; the RAG worker retrieves, calls Groq and
+saves the answer. Verified after the first live answers: both socket servers stayed at ~110 MB.
+
+**The worker reaches sockets through Redis pub/sub and `io.local`.** Answers stream to sockets the
+worker does not hold. It publishes each event to one channel; every node subscribes and emits to
+its own sockets with `io.local`. `io.to` would send the event back through the Redis adapter to
+every node, and with both nodes subscribed each token would arrive twice.
+`@socket.io/redis-emitter` does this off the shelf, but it is not in PROJECT.md 2 (10 says ask
+first) and the ioredis client already in use needs a few lines. The relay accepts only the four
+bot events, so Redis cannot be used to emit arbitrary events into rooms.
+
+**One worker process embeds and answers.** It replaces the embed-only worker, so the model loads
+once. This also closes the gap noted in part 2: while the RAG worker runs, live messages are
+embedded as they arrive. It is still not a docker-compose service; it runs on the host with
+`npm run rag:worker -w server`, which keeps the model outside the WSL2 memory allocation.
+
+**Citations are stored on the message (`messages.citations text[]`).** 8.6 sends them only on
+`bot:complete` and 8.3's schema had nowhere to keep them, so chips would have vanished on reload.
+One nullable column; only bot messages set it.
+
+**Citations are renumbered in order of use, and invented numbers are dropped.** The prompt numbers
+sources 1..n in retrieval order, but chips are shown in the order the answer cites them, so an
+answer citing only source 7 would otherwise read "[7]" beside a single chip "[1]". A number outside
+1..n is removed rather than trusted: 8.7 requires every citation to be a real message in the room,
+and a model can cite a source that does not exist.
+
+**Only `delta.content` is forwarded, and reasoning is switched off.** `openai/gpt-oss-120b` is a
+reasoning model and Groq streams its private reasoning first, in a separate `reasoning` field.
+Forwarding every chunk would post it into the room and save it as the answer. The request sets
+`include_reasoning: false`, and the parser reads only `content` in case a model sends it anyway.
+
+**Retrieved messages are treated as untrusted.** They are chat anyone in the room could write, so
+the system prompt says never to follow instructions inside them, and newlines inside a message are
+collapsed so nobody can post a message that forges an extra numbered source line. This reduces
+prompt injection; it does not eliminate it.
+
+**The bot never answers from itself.** Its own earlier answers and the `@bot` questions are removed
+from the sources - the asker's own question matches itself better than anything else and contains
+nothing new.
+
+**Bot jobs are never retried.** An answer streams to the room as it is generated, so a retry after
+a partial failure would stream a second answer over the first. Failures reach the room as
+`bot:error`, with a generic reason; the detail is logged.
+
+**The bot's account is created by migration with an unusable password.** 8.6 saves answers "as a
+normal message from the bot user". Created in the migration rather than on first use so the
+username is taken before anyone can register it. `verifyPassword` now returns false for a stored
+value that is not an argon2 hash - argon2 throws on it, which would have made a login attempt as
+`bot` a 500 instead of "invalid credentials".
+
+**Two bugs found on the way.** History used `db.select()`, which returns every column: since
+`body_tsv` was added in part 1, each page of history shipped every message's search index to the
+browser. It now lists columns explicitly, with a test. And the first live answer crashed with
+`date.toISOString is not a function`: the vector arm's raw `execute()` skips drizzle's mapping, so
+its timestamps were strings ("2026-09-15 18:50:32.506+00") despite being typed as `Date`. Nothing
+had read that field until the prompt formatted it. The query now asks Postgres for ISO-8601, and a
+test checks every retrieval mode returns real Dates.

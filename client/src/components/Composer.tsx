@@ -186,7 +186,8 @@ export function Composer({
           ) : (
             <>
               <kbd className="font-sans">Enter</kbd> to send ·{' '}
-              <kbd className="font-sans">Shift+Enter</kbd> for a new line
+              <kbd className="font-sans">Shift+Enter</kbd> for a new line ·{' '}
+              <kbd className="font-sans">@bot</kbd> to ask about this room
             </>
           )}
         </p>

@@ -85,8 +85,8 @@ describe('citationsFor', () => {
   });
 
   it('returns nothing for an ordinary message', () => {
-    // Also the post-reload case: citations live only in memory, so a bot
-    // answer loaded from history has none until Phase 8 decides to store them.
+    // After a reload the lookup is empty; the saved message's own citations
+    // field is what the list reads then.
     expect(citationsFor(streams, 'm10')).toEqual([]);
     expect(citationsFor([], 'm99')).toEqual([]);
   });

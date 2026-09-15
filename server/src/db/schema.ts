@@ -62,6 +62,9 @@ export const messages = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     // The keyword arm of the hybrid search (8.5). Generated rather than
     // maintained in application code, so it can never drift from `body`.
+    // Bot answers only: the messages an answer was drawn from (8.6). Stored so the
+    // citation chips survive a reload; 8.3's schema had nowhere to keep them.
+    citations: text('citations').array(),
     bodyTsv: tsvector('body_tsv').generatedAlwaysAs(
       sql`to_tsvector('english', coalesce(body, ''))`,
     ),

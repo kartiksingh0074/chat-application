@@ -3,6 +3,21 @@ import { db } from '../db/client.js';
 import { messages } from '../db/schema.js';
 
 /**
+ * What a client receives for a message. Listed explicitly rather than
+ * `select()`, which returns every column - including `body_tsv`, so each page
+ * of history was shipping every message's search index to the browser.
+ */
+export const messageColumns = {
+  id: messages.id,
+  roomId: messages.roomId,
+  senderId: messages.senderId,
+  body: messages.body,
+  attachmentKey: messages.attachmentKey,
+  createdAt: messages.createdAt,
+  citations: messages.citations,
+};
+
+/**
  * Cursor pagination for scrollback: `before` is the id (ULID) of the oldest
  * message already loaded. Never uses OFFSET - id is both the sort key and
  * the pagination cursor, so this is a single indexed range scan on
@@ -14,7 +29,7 @@ export function buildMessagesPageQuery(roomId: string, before: string | undefine
     : eq(messages.roomId, roomId);
 
   return db
-    .select()
+    .select(messageColumns)
     .from(messages)
     .where(condition)
     .orderBy(desc(messages.id))
@@ -29,7 +44,7 @@ export function buildMessagesPageQuery(roomId: string, before: string | undefine
  */
 export function buildMessagesAfterQuery(roomId: string, after: string, limit: number) {
   return db
-    .select()
+    .select(messageColumns)
     .from(messages)
     .where(and(eq(messages.roomId, roomId), gt(messages.id, after)))
     .orderBy(asc(messages.id))
@@ -47,7 +62,7 @@ export function buildMessagesAfterQuery(roomId: string, after: string, limit: nu
  */
 export function buildMessagesAtOrBeforeQuery(roomId: string, target: string, limit: number) {
   return db
-    .select()
+    .select(messageColumns)
     .from(messages)
     .where(and(eq(messages.roomId, roomId), lte(messages.id, target)))
     .orderBy(desc(messages.id))

@@ -81,10 +81,10 @@ export function botStreamReducer(state: BotStream[], action: BotStreamAction): B
 }
 
 /**
- * Citations are only carried by the `bot:complete` event, and the messages
- * table has no column for them - so once a page is reloaded, a persisted bot
- * answer has no citations to render. Phase 8 has to decide whether to store
- * them; until then this lookup is in-memory only and empty after a refresh.
+ * Citations for a bot message that has just finished streaming. They are also
+ * saved on the message itself, so this only covers the brief gap between
+ * `bot:complete` and the saved message arriving; after a reload the message's
+ * own `citations` field is used instead.
  */
 export function citationsFor(streams: BotStream[], messageId: string): string[] {
   return streams.find((s) => s.messageId === messageId)?.citations ?? [];
